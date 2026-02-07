@@ -20,9 +20,9 @@ variant:
   workflow:
     max_rounds: 3
     rotation_order:
-      - agent_a
-      - agent_b
-      - agent_c
+      - designer_0
+      - designer_1
+      - designer_2
     review_template: review/general_review.j2
   token_budget:
     estimated_input: 100000

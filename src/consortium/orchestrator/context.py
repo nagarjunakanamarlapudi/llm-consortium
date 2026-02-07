@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from consortium.config.models import LimitsConfig
+
+if TYPE_CHECKING:
+    from consortium.config.models import RubricDimensionConfig
 
 
 @dataclass
@@ -106,6 +110,9 @@ class RunContext:
     total_output_tokens: int = 0
     total_cost_usd: float = 0.0
 
+    # Rubric dimensions for this run's design type
+    rubric_dimensions: list[RubricDimensionConfig] = field(default_factory=list)
+
     # Trace (every LLM call recorded here)
     traces: list[LLMCallTrace] = field(default_factory=list)
 
@@ -116,6 +123,10 @@ class RunContext:
     # Status
     status: str = "pending"  # "pending", "running", "completed", "failed", "aborted"
     error: str | None = None
+
+    # Checkpoint (for resume after crash)
+    checkpoint_step: str | None = None  # e.g. "round:2:review"
+    checkpoint_data: str | None = None  # JSON-serialized state for resume
 
     def record_trace(self, trace: LLMCallTrace) -> None:
         """Append a traced LLM call and update accounting."""

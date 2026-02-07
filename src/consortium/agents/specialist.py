@@ -57,6 +57,7 @@ class SpecialistReviewer(BaseAgent):
             "design_text": design.full_text,
             "system_name": task.variables.system_name,
             "complexity": task.complexity,
+            "design_type": task.design_type,
             "specialty": self.specialty,
             "focus_dimensions": self.focus_dimensions,
             "rubric_dimensions": (

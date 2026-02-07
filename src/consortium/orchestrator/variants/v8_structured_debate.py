@@ -21,7 +21,7 @@ class V8StructuredDebateOrchestrator(VariantOrchestrator):
     async def execute(self, task: TaskConfig, context: RunContext) -> DesignArtifact:
         debaters = self._get_agents("debaters")
         judge = self._get_agent("judge")
-        rubric_dims = context._rubric_dimensions  # type: ignore[attr-defined]
+        rubric_dims = context.rubric_dimensions
         rebuttal_template = self.config.workflow.rebuttal_template
 
         # Assign perspectives to debaters

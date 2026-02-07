@@ -3,6 +3,11 @@ rubric:
   name: "System Design Evaluation Rubric"
   description: "Rubric for evaluating distributed system and infrastructure design quality."
 
+  coherence_pairs:
+    - ["data_architecture", "scalability_strategy"]
+    - ["api_design", "security_design"]
+    - ["reliability", "trade_off_honesty"]
+
   dimensions:
     - id: "requirement_coverage"
       name: "Requirements Understanding"

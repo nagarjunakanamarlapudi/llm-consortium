@@ -27,14 +27,25 @@ class V6RotatingLeaderOrchestrator(VariantOrchestrator):
 
     async def execute(self, task: TaskConfig, context: RunContext) -> DesignArtifact:
         participants = self._get_agents("participants")
-        rubric_dims = context._rubric_dimensions  # type: ignore[attr-defined]
+        rubric_dims = context.rubric_dimensions
         review_template = self.config.workflow.review_template
+
+        # Build rotation order: config specifies agent IDs, map to indices
+        rotation_order = self.config.workflow.rotation_order
+        agent_id_to_idx = {p.agent_id: i for i, p in enumerate(participants)}
+        if rotation_order:
+            ordered_indices = [
+                agent_id_to_idx.get(aid, i % len(participants))
+                for i, aid in enumerate(rotation_order)
+            ]
+        else:
+            ordered_indices = list(range(len(participants)))
 
         design: DesignArtifact | None = None
         pending_reviews: list[ReviewArtifact] = []
 
         for round_num in range(self.config.workflow.max_rounds):
-            leader_idx = round_num % len(participants)
+            leader_idx = ordered_indices[round_num % len(ordered_indices)]
             leader = participants[leader_idx]
             reviewers = [p for i, p in enumerate(participants) if i != leader_idx]
 
@@ -94,6 +105,7 @@ class V6RotatingLeaderOrchestrator(VariantOrchestrator):
             "design_text": design.full_text,
             "system_name": task.variables.system_name,
             "complexity": task.complexity,
+            "design_type": task.design_type,
             "rubric_dimensions": (
                 [d.model_dump() for d in rubric_dims] if rubric_dims else None
             ),

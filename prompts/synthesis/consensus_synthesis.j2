@@ -1,4 +1,4 @@
-You are a consensus evaluator. Your task is to determine whether {{ designs | length }} design proposals have converged sufficiently, and if so, produce a final synthesized design.
+You are a consensus evaluator. Your task is to determine whether {{ designs | length }} {{ "system" if design_type == "system" else "application" }} design proposals have converged sufficiently, and if so, produce a final synthesized design.
 
 ## Task Context
 

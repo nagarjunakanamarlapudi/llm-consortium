@@ -4,7 +4,7 @@ task:
   complexity: "simple"
   design_type: "application"
   rubric: "application_design"
-  prompt_template: "generation/design_system.j2"
+  prompt_template: "generation/design_application.j2"
   variables:
     system_name: "Real-Time Chat Application"
     problem_statement: |

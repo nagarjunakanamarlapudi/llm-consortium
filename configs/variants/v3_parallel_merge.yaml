@@ -19,7 +19,8 @@ variant:
       count: 3
       diversity:
         enabled: true
-        perspective_prompts:
+        strategy: perspective_prompts
+        perspectives:
           - scalability
           - simplicity
           - resilience

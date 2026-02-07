@@ -20,7 +20,7 @@ class V5SpecialistPanelOrchestrator(VariantOrchestrator):
     async def execute(self, task: TaskConfig, context: RunContext) -> DesignArtifact:
         leader = self._get_agent("leader")
         specialists = self._get_agents("specialists")
-        rubric_dims = context._rubric_dimensions  # type: ignore[attr-defined]
+        rubric_dims = context.rubric_dimensions
 
         # Round 0: initial generation
         self._log.info("round_start", round=0, step="generation")

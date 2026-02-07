@@ -2,9 +2,9 @@ task:
   id: "t3"
   name: "E-Commerce Platform"
   complexity: "medium"
-  design_type: "system"
-  rubric: "system_design"
-  prompt_template: "generation/design_system.j2"
+  design_type: "application"
+  rubric: "application_design"
+  prompt_template: "generation/design_application.j2"
   variables:
     system_name: "E-Commerce Platform"
     problem_statement: |

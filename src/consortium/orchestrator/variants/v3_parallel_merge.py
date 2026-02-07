@@ -20,7 +20,7 @@ class V3ParallelMergeOrchestrator(VariantOrchestrator):
     async def execute(self, task: TaskConfig, context: RunContext) -> DesignArtifact:
         parallel_leaders = self._get_agents("parallel_leaders")
         merger = self._get_agent("merger")
-        rubric_dims = context._rubric_dimensions  # type: ignore[attr-defined]
+        rubric_dims = context.rubric_dimensions
 
         # Extract diversity perspectives from variant config
         diversity = self.config.agents.parallel_leaders

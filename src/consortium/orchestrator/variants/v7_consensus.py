@@ -28,7 +28,7 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
 
     async def execute(self, task: TaskConfig, context: RunContext) -> DesignArtifact:
         participants = self._get_agents("participants")
-        rubric_dims = context._rubric_dimensions  # type: ignore[attr-defined]
+        rubric_dims = context.rubric_dimensions
         convergence_template = self.config.workflow.convergence_template
 
         # Round 0: independent parallel generation
@@ -128,6 +128,7 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             ],
             "system_name": task.variables.system_name,
             "complexity": task.complexity,
+            "design_type": task.design_type,
             "rubric_dimensions": (
                 [d.model_dump() for d in rubric_dims] if rubric_dims else None
             ),

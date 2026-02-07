@@ -194,6 +194,7 @@ class RubricConfig(BaseModel, frozen=True):
     id: str
     name: str
     description: str = ""
+    coherence_pairs: list[list[str]] = Field(default_factory=list)
     dimensions: list[RubricDimensionConfig] = Field(default_factory=list)
 
 
@@ -205,7 +206,6 @@ class CoherenceCheckConfig(BaseModel, frozen=True):
 
     enabled: bool = True
     prompt_template: str = "evaluation/coherence_check.j2"
-    section_pairs: list[list[str]] = Field(default_factory=list)
 
 
 class ReliabilityConfig(BaseModel, frozen=True):
@@ -256,6 +256,7 @@ class LimitsConfig(BaseModel, frozen=True):
     max_retries: int = 3
     retry_backoff_base: float = 2.0
     timeout_seconds: int = 300
+    max_concurrent_runs: int = 5
 
 
 class DefaultsConfig(BaseModel, frozen=True):

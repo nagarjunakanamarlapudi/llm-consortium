@@ -52,6 +52,7 @@ class DesignerAgent(BaseAgent):
             "hard_constraints": task.variables.hard_constraints,
             "use_cases": task.variables.use_cases,
             "complexity_drivers": task.variables.complexity_drivers,
+            "design_type": task.design_type,
             "rubric_dimensions": (
                 [d.model_dump() for d in rubric_dimensions]
                 if rubric_dimensions
@@ -63,6 +64,7 @@ class DesignerAgent(BaseAgent):
             "previous_design": (
                 previous_design.full_text if previous_design else None
             ),
+            "perspective": perspective,
         }
 
         step = "revision" if previous_design else "generation"

@@ -1,0 +1,191 @@
+# Coverage Matrix: Maps rubric dimensions to design sections that provide evidence.
+#
+# Many-to-many mapping — each dimension draws evidence from multiple sections,
+# and each section contributes to multiple dimensions. The evaluator prompt
+# can reference this matrix to know where to look for evidence of each dimension.
+#
+# "primary" sections are where the strongest evidence should appear.
+# "secondary" sections may also contain supporting evidence.
+
+system_design:
+  rubric_id: system_design
+  # Design sections (keyed by section number from design_system.j2)
+  sections:
+    - id: requirements
+      name: "Requirements Crystallization"
+      section_number: 1
+    - id: capacity
+      name: "Capacity Estimation & Resource Planning"
+      section_number: 2
+    - id: architecture
+      name: "High-Level Architecture"
+      section_number: 3
+    - id: data_model
+      name: "Data Model & Storage Design"
+      section_number: 4
+    - id: api
+      name: "API Design"
+      section_number: 5
+    - id: deep_dive
+      name: "Deep Dive on Critical Path"
+      section_number: 6
+    - id: scalability
+      name: "Scalability & Performance Strategy"
+      section_number: 7
+    - id: reliability
+      name: "Reliability & Failure Handling"
+      section_number: 8
+    - id: security
+      name: "Security Design"
+      section_number: 9
+    - id: observability
+      name: "Observability & Operations"
+      section_number: 10
+    - id: tradeoffs
+      name: "Trade-off Summary Table"
+      section_number: 11
+    - id: evolution
+      name: "Evolution & Migration Path"
+      section_number: 12
+
+  # Dimension-to-section mapping
+  dimension_coverage:
+    requirement_coverage:
+      primary: [requirements]
+      secondary: [api, deep_dive]
+
+    capacity_estimation:
+      primary: [capacity]
+      secondary: [scalability, architecture]
+
+    architecture_clarity:
+      primary: [architecture]
+      secondary: [data_model, api, deep_dive]
+
+    data_architecture:
+      primary: [data_model]
+      secondary: [scalability, deep_dive, capacity]
+
+    api_design:
+      primary: [api]
+      secondary: [security, architecture]
+
+    scalability_strategy:
+      primary: [scalability]
+      secondary: [capacity, data_model, architecture]
+
+    reliability_design:
+      primary: [reliability]
+      secondary: [deep_dive, architecture, observability]
+
+    security_design:
+      primary: [security]
+      secondary: [api, data_model]
+
+    right_sizing:
+      primary: [architecture, tradeoffs]
+      secondary: [capacity, evolution]
+
+    trade_off_awareness:
+      primary: [tradeoffs]
+      secondary: [data_model, scalability, reliability, architecture]
+
+    operability:
+      primary: [observability]
+      secondary: [reliability, evolution, security]
+
+
+application_design:
+  rubric_id: application_design
+  sections:
+    - id: requirements
+      name: "Requirements & Scope Clarification"
+      section_number: 1
+    - id: domain_model
+      name: "Domain Model"
+      section_number: 2
+    - id: module_structure
+      name: "Module / Package Structure"
+      section_number: 3
+    - id: interfaces
+      name: "Interface & Contract Design"
+      section_number: 4
+    - id: data_flow
+      name: "Data Flow & Sequence Diagrams"
+      section_number: 5
+    - id: state_mgmt
+      name: "State Management & Lifecycle"
+      section_number: 6
+    - id: error_handling
+      name: "Error Handling Strategy"
+      section_number: 7
+    - id: dependency_mgmt
+      name: "Dependency Management & Inversion"
+      section_number: 8
+    - id: concurrency
+      name: "Concurrency & Thread Safety"
+      section_number: 9
+    - id: testing
+      name: "Testing Architecture"
+      section_number: 10
+    - id: config
+      name: "Configuration & Environment Management"
+      section_number: 11
+    - id: cross_cutting
+      name: "Cross-Cutting Concerns"
+      section_number: 12
+    - id: decision_log
+      name: "Design Decision Log"
+      section_number: 13
+    - id: evolution
+      name: "Evolutionary Path & Known Debt"
+      section_number: 14
+
+  dimension_coverage:
+    requirement_coverage:
+      primary: [requirements]
+      secondary: [interfaces, domain_model]
+
+    domain_model:
+      primary: [domain_model]
+      secondary: [state_mgmt, interfaces, data_flow]
+
+    module_structure:
+      primary: [module_structure]
+      secondary: [dependency_mgmt, interfaces]
+
+    interface_design:
+      primary: [interfaces]
+      secondary: [domain_model, module_structure, error_handling]
+
+    data_flow_clarity:
+      primary: [data_flow]
+      secondary: [interfaces, state_mgmt, domain_model]
+
+    error_handling:
+      primary: [error_handling]
+      secondary: [interfaces, data_flow, cross_cutting]
+
+    testability:
+      primary: [testing]
+      secondary: [dependency_mgmt, module_structure, domain_model]
+
+    state_management:
+      primary: [state_mgmt]
+      secondary: [domain_model, concurrency, data_flow]
+
+    concurrency_safety:
+      primary: [concurrency]
+      secondary: [state_mgmt, error_handling]
+
+    cross_cutting_concerns:
+      primary: [cross_cutting]
+      secondary: [config, error_handling, testing]
+
+    design_decision_justification:
+      primary: [decision_log]
+      secondary: [domain_model, module_structure, interfaces]
+
+    right_sizing:
+      primary: [module_structure, decision_log]
+      secondary: [domain_model, evolution]

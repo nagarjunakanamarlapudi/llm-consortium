@@ -47,6 +47,7 @@ class ReviewerAgent(BaseAgent):
             "design_text": design.full_text,
             "system_name": task.variables.system_name,
             "complexity": task.complexity,
+            "design_type": task.design_type,
             "rubric_dimensions": (
                 [d.model_dump() for d in rubric_dimensions]
                 if rubric_dimensions

@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from consortium.cli.db import app as db_app
+from consortium.cli.run import app as run_app
 from consortium.cli.validate import app as validate_app
 
 app = typer.Typer(
@@ -13,6 +14,7 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+app.add_typer(run_app, name="run", help="Run experiments (single, experiment, evaluate)")
 app.add_typer(validate_app, name="validate", help="Validate configuration files")
 app.add_typer(db_app, name="db", help="Database operations (init, stats, export)")
 

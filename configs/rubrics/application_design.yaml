@@ -3,135 +3,141 @@ rubric:
   name: "Application Design Evaluation Rubric"
   description: "Rubric for evaluating application-level software design quality."
 
+  coherence_pairs:
+    - ["error_handling", "state_management"]
+    - ["state_management", "concurrency_safety"]
+    - ["interface_design", "domain_model"]
+    - ["testability", "module_structure"]
+
   dimensions:
+    - id: "requirement_coverage"
+      name: "Requirements & Scope Clarity"
+      weight: 0.6
+      description: "How thoroughly the design addresses all stated requirements, identifies ambiguities, and defines clear scope boundaries."
+      anchors:
+        "1": "Requirements parroted back or ignored. No assumptions stated. Scope is vague."
+        "2": "Addresses some requirements but misses several critical ones. Scope unclear."
+        "3": "Covers core requirements; minor gaps in edge cases or non-functional requirements."
+        "4": "Addresses all stated requirements with reasonable completeness. Clear in/out of scope."
+        "5": "Comprehensive coverage with proactive identification of implicit needs. Ambiguities identified with stated assumptions."
+
     - id: "domain_model"
       name: "Domain Model Quality"
       weight: 1.4
-      description: "Quality of entity modeling, relationships, and domain logic encapsulation."
+      description: "Quality of entity modeling, relationships, invariants, and domain logic encapsulation."
       anchors:
-        "1": "No domain model; logic scattered without structure."
+        "1": "Anemic data bags with no behavior. No invariants. Status fields are raw strings. Domain logic scattered across service classes."
         "2": "Basic entities identified but poor boundaries and coupling."
         "3": "Reasonable entity model with defined relationships; some boundary issues."
-        "4": "Well-structured domain model with clear aggregates, value objects, and invariants."
-        "5": "Rich domain model with bounded contexts, event-driven integration, and ubiquitous language."
+        "4": "Well-structured domain model with clear aggregates, value objects, and invariants enforced in constructors/methods."
+        "5": "Rich domain model with bounded contexts, event-driven integration, and ubiquitous language. Invalid state is unrepresentable."
 
     - id: "module_structure"
-      name: "Module Structure & Dependencies"
+      name: "Module Structure & Dependency Direction"
       weight: 1.2
-      description: "Organization of code into cohesive, loosely-coupled modules."
+      description: "Organization of code into cohesive, loosely-coupled modules with clear dependency direction."
       anchors:
-        "1": "Monolithic blob; no meaningful structure."
+        "1": "Flat structure or tangled dependencies. Domain imports infrastructure. Circular dependencies. No clear public/private boundary."
         "2": "Some separation but high coupling and low cohesion."
-        "3": "Identifiable modules with reasonable separation of concerns."
-        "4": "Well-defined module boundaries with explicit dependencies and clear layering."
-        "5": "Sophisticated module architecture with plugin systems, dependency inversion, and clean boundaries."
-
-    - id: "testability"
-      name: "Testability"
-      weight: 1.2
-      description: "How easy the design is to test at unit, integration, and end-to-end levels."
-      anchors:
-        "1": "Untestable design; tight coupling to external systems."
-        "2": "Difficult to test; requires extensive mocking."
-        "3": "Reasonably testable with standard dependency injection."
-        "4": "Highly testable with clear boundaries, ports/adapters, and test strategy."
-        "5": "Test-first design with contract testing, property-based testing, and test infrastructure."
-
-    - id: "error_handling"
-      name: "Error Handling"
-      weight: 1.0
-      description: "Error propagation, user feedback, recovery strategies, and edge cases."
-      anchors:
-        "1": "No error handling; crashes on unexpected input."
-        "2": "Generic catch-all handling; poor user feedback."
-        "3": "Typed errors for common cases; reasonable user messages."
-        "4": "Comprehensive error hierarchy with recovery strategies and user-friendly feedback."
-        "5": "Sophisticated error handling with retry policies, circuit breakers, graceful degradation, and telemetry."
+        "3": "Identifiable modules with reasonable separation of concerns. A new dev can navigate the codebase."
+        "4": "Well-defined module boundaries with explicit dependencies flowing inward. No circular dependencies."
+        "5": "Clear module boundaries with explicit public APIs. Dependencies flow inward. A new dev can navigate the codebase from the folder structure alone."
 
     - id: "interface_design"
       name: "Interface & Contract Design"
       weight: 1.0
-      description: "Quality of public APIs, contracts, and abstraction boundaries."
+      description: "Quality of public APIs, contracts, type expressiveness, and abstraction boundaries."
       anchors:
-        "1": "No clear interfaces; implementation details exposed."
+        "1": "No defined interfaces. Methods accept/return raw dicts or any. No contracts. Callers must read implementation."
         "2": "Basic interfaces but leaky abstractions."
         "3": "Defined interfaces with reasonable abstraction; some inconsistency."
-        "4": "Clean interfaces with consistent patterns, versioning, and documentation."
-        "5": "Exemplary interface design with backward compatibility, discoverability, and developer ergonomics."
+        "4": "Clean interfaces with consistent patterns, versioning, and documentation. Types are expressive."
+        "5": "Interfaces are minimal, well-named, and have clear contracts (pre/postconditions, error semantics)."
+
+    - id: "data_flow_clarity"
+      name: "Data Flow Clarity"
+      weight: 0.8
+      description: "Clarity of data flow through the application, including sequence diagrams for critical paths and visibility of I/O boundaries."
+      anchors:
+        "1": "No data flow documentation. Unclear how a request traverses the system. Hidden side effects."
+        "2": "Partial data flow description; missing key paths or I/O boundaries."
+        "3": "Data flow described for primary paths. I/O boundaries mostly visible."
+        "4": "Sequence diagrams or flow descriptions for critical paths. Clear who calls whom, what data is passed."
+        "5": "Comprehensive data flow with sequence diagrams for all critical paths. I/O boundaries clearly visible. Transformations documented."
+
+    - id: "error_handling"
+      name: "Error Handling Rigor"
+      weight: 1.0
+      description: "Error taxonomy, recovery strategies, partial failure handling, and context propagation."
+      anchors:
+        "1": "No error strategy. Bare try/except everywhere. Partial failure not considered. Errors swallowed silently."
+        "2": "Generic catch-all handling; poor user feedback."
+        "3": "Typed errors for common cases; reasonable recovery. Errors carry some context."
+        "4": "Comprehensive error hierarchy with recovery strategies. Partial failure addressed. Errors carry correlation IDs."
+        "5": "Error taxonomy defined with clear handling rules per category (retry, fail, escalate). No broad catch Exception."
+
+    - id: "testability"
+      name: "Testability"
+      weight: 1.2
+      description: "How well the architecture enables the testing pyramid, with injectable dependencies and deterministic tests."
+      anchors:
+        "1": "Untestable: business logic intertwined with I/O. Global state. No interfaces for dependencies."
+        "2": "Difficult to test; requires extensive mocking."
+        "3": "Reasonably testable with standard dependency injection."
+        "4": "Architecture enables the testing pyramid. 70%+ of logic testable without I/O. All external dependencies behind injectable interfaces."
+        "5": "Test-first design with example test cases provided. Time/randomness injected. Contract testing and property-based testing considered."
+
+    - id: "state_management"
+      name: "State Management & Lifecycle"
+      weight: 0.6
+      description: "How application state is organized, mutated, and synchronized with explicit lifecycle management."
+      anchors:
+        "1": "State management is ad hoc. Raw status strings. No lifecycle definition. Hidden global mutable state."
+        "2": "Basic state handling but unclear ownership and uncontrolled mutations."
+        "3": "Defined state boundaries with reasonable encapsulation; some shared mutable state."
+        "4": "Stateful components identified. State transitions are explicit and enforced. Persistence mapping defined."
+        "5": "No hidden mutable state. State transitions enforced via state machines or event sourcing. Full auditability."
+
+    - id: "concurrency_safety"
+      name: "Concurrency & Safety"
+      weight: 0.6
+      description: "How the design handles concurrent access, race conditions, and thread safety."
+      anchors:
+        "1": "Concurrency not mentioned in a concurrent system. Shared mutable state with no protection."
+        "2": "Acknowledges concurrency but relies on coarse-grained locks or hope."
+        "3": "Basic thread safety with standard synchronization; some potential for deadlocks."
+        "4": "Shared mutable state identified and protected. Concurrency model is explicit. Race conditions addressed."
+        "5": "Provably safe concurrency design. Back-pressure strategy exists. If single-threaded, stated and justified."
 
     - id: "cross_cutting_concerns"
       name: "Cross-Cutting Concerns"
       weight: 0.6
-      description: "Handling of concerns that span multiple modules: logging, configuration, authentication, caching."
+      description: "Handling of logging, metrics, configuration, validation, and other concerns that span multiple modules."
       anchors:
-        "1": "No cross-cutting strategy; concerns handled ad-hoc in every module."
+        "1": "No mention of logging, observability, or config management. Or mentioned with 'we'll use a logger.'"
         "2": "Some shared utilities but inconsistent usage and scattered configuration."
         "3": "Identified cross-cutting concerns with basic middleware or decorator patterns."
-        "4": "Well-structured cross-cutting layer with AOP, middleware pipelines, and consistent configuration management."
-        "5": "Elegant cross-cutting architecture with composable middleware, centralized policy enforcement, and zero-boilerplate integration."
+        "4": "Logging, metrics, validation, and config addressed with concrete strategies. Structured logging. Config validated at startup."
+        "5": "Elegant cross-cutting architecture with composable middleware, centralized policy enforcement. Sensitive data not logged."
 
-    - id: "state_management"
-      name: "State Management"
-      weight: 0.6
-      description: "How application state is organized, mutated, and synchronized across components."
+    - id: "design_decision_justification"
+      name: "Design Decision Justification"
+      weight: 0.5
+      description: "Explicit discussion of design trade-offs, alternatives considered, and rationale grounded in specific constraints."
       anchors:
-        "1": "No state management strategy; global mutable state everywhere."
-        "2": "Basic state handling but unclear ownership and uncontrolled mutations."
-        "3": "Defined state boundaries with reasonable encapsulation; some shared mutable state."
-        "4": "Clear state ownership with immutable patterns, event-driven updates, and predictable state transitions."
-        "5": "Sophisticated state architecture with CQRS, event sourcing, or state machines; full auditability and replay capability."
-
-    - id: "concurrency_safety"
-      name: "Concurrency Safety"
-      weight: 0.6
-      description: "How the design handles concurrent access, race conditions, and thread safety."
-      anchors:
-        "1": "No concurrency consideration; race conditions inevitable."
-        "2": "Acknowledges concurrency but relies on coarse-grained locks or hope."
-        "3": "Basic thread safety with standard synchronization; some potential for deadlocks."
-        "4": "Well-designed concurrency with fine-grained locking, lock-free structures, or actor models; deadlock prevention."
-        "5": "Provably safe concurrency design with formal reasoning about ordering, linearizability, and progress guarantees."
-
-    - id: "security_design"
-      name: "Security Design"
-      weight: 0.6
-      description: "Authentication, authorization, input validation, and data protection."
-      anchors:
-        "1": "No security measures."
-        "2": "Basic authentication but no authorization or input validation."
-        "3": "Standard auth/authz with input validation for primary paths."
-        "4": "Comprehensive security with RBAC, CSRF protection, and secure data handling."
-        "5": "Defense-in-depth with security headers, CSP, audit logging, and vulnerability scanning."
-
-    - id: "trade_off_awareness"
-      name: "Trade-off Awareness"
-      weight: 0.6
-      description: "Explicit discussion of design trade-offs and alternatives considered."
-      anchors:
-        "1": "No trade-offs discussed."
+        "1": "Decisions presented as obvious. No alternatives considered. Rationale is 'it's the best practice.'"
         "2": "Mentions trade-offs without analysis."
-        "3": "Identifies key trade-offs with rationale."
-        "4": "Explicit analysis of alternatives with justified decisions."
-        "5": "Deep reasoning about trade-offs with reversibility assessment and migration paths."
+        "3": "Identifies key trade-offs with basic rationale."
+        "4": "Every major choice includes alternatives considered, rationale, and acknowledged trade-offs."
+        "5": "Deep reasoning grounded in specific constraints, not generic best practices. Reversibility and migration paths considered."
 
-    - id: "requirement_coverage"
-      name: "Requirement Coverage"
-      weight: 0.8
-      description: "How thoroughly the design addresses all stated requirements."
+    - id: "right_sizing"
+      name: "Right-Sizing & Simplicity"
+      weight: 0.5
+      description: "Whether design complexity is proportional to the problem, avoiding unnecessary abstractions while meeting requirements."
       anchors:
-        "1": "Ignores most requirements."
-        "2": "Addresses some requirements; major gaps."
-        "3": "Covers core requirements; minor gaps."
-        "4": "Addresses all stated requirements with reasonable completeness."
-        "5": "Comprehensive coverage with proactive identification of implicit needs."
-
-    - id: "extensibility"
-      name: "Extensibility"
-      weight: 0.4
-      description: "How easily the design accommodates new features and changing requirements."
-      anchors:
-        "1": "Rigid design; changes require rewrites."
-        "2": "Some extension points but high modification cost."
-        "3": "Reasonable extensibility for anticipated changes."
-        "4": "Well-designed extension points with plugin architecture and feature toggles."
-        "5": "Highly extensible with event-driven architecture, strategy patterns, and configuration-driven behavior."
+        "1": "Over-engineered (8-layer abstraction for CRUD) or under-designed (no structure for complex logic). Premature abstraction everywhere."
+        "2": "Significant over-engineering with unnecessary abstractions, or under-engineering missing critical needs."
+        "3": "Mostly appropriate complexity; some unnecessary layers or missing simplifications."
+        "4": "Complexity proportional to the problem. Abstractions exist for demonstrated needs, not hypothetical ones. YAGNI applied."
+        "5": "Perfectly right-sized. A simpler approach was considered and either adopted or ruled out with justification."

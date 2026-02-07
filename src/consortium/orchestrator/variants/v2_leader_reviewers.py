@@ -20,7 +20,7 @@ class V2LeaderReviewersOrchestrator(VariantOrchestrator):
     async def execute(self, task: TaskConfig, context: RunContext) -> DesignArtifact:
         leader = self._get_agent("leader")
         reviewers = self._get_agents("reviewers")
-        rubric_dims = context._rubric_dimensions  # type: ignore[attr-defined]
+        rubric_dims = context.rubric_dimensions
         sees_others = self.config.workflow.reviewer_sees_other_reviews
 
         # Round 0: initial generation

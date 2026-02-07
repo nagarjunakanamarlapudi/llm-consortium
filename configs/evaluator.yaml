@@ -13,10 +13,6 @@ evaluator:
   coherence_check:
     enabled: true
     prompt_template: "evaluation/coherence_check.j2"
-    section_pairs:
-      - ["data_architecture", "scalability_strategy"]
-      - ["api_design", "security_design"]
-      - ["error_handling", "trade_off_awareness"]
 
   reliability:
     min_krippendorff_alpha: 0.7

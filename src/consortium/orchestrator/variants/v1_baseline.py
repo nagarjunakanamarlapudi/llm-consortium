@@ -17,7 +17,7 @@ class V1BaselineOrchestrator(VariantOrchestrator):
 
     async def execute(self, task: TaskConfig, context: RunContext) -> DesignArtifact:
         designer = self._get_agent("designer")
-        rubric_dims = context._rubric_dimensions  # type: ignore[attr-defined]
+        rubric_dims = context.rubric_dimensions
 
         # Initial generation
         self._log.info("round_start", round=0, step="generation")

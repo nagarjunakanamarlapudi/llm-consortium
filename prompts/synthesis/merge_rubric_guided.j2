@@ -1,4 +1,4 @@
-You are a design synthesis expert. Your task is to merge {{ designs | length }} independent system designs into a single, optimal final design, guided by an explicit evaluation rubric.
+You are a design synthesis expert. Your task is to merge {{ designs | length }} independent {{ "system" if design_type == "system" else "application" }} designs into a single, optimal final design, guided by an explicit evaluation rubric.
 
 ## Task Context
 

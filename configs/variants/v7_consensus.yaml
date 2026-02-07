@@ -1,0 +1,25 @@
+variant:
+  id: v7
+  name: Consensus Convergence
+  description: "Multiple participants independently generate designs and iteratively converge toward consensus through synthesis rounds until agreement is reached or max rounds are exhausted."
+  matrix_position:
+    authority: decentralized
+    roles: homogeneous
+    dynamics: cooperative
+  sub_variant: null
+  agents:
+    participants:
+      role: designer
+      model: gpt-4.1
+      system_prompt_template: generation/design_system.j2
+      parameters:
+        temperature: 0.8
+        max_tokens: 16384
+        top_p: 1.0
+      count: 3
+  workflow:
+    max_rounds: 5
+    convergence_template: synthesis/consensus_synthesis.j2
+  token_budget:
+    estimated_input: 150000
+    estimated_output: 90000

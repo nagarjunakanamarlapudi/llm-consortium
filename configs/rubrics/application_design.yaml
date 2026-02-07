@@ -1,0 +1,126 @@
+rubric:
+  id: "application_design"
+  name: "Application Design Evaluation Rubric"
+  description: "Rubric for evaluating application-level software design quality."
+
+  dimensions:
+    - id: "domain_model"
+      name: "Domain Model"
+      weight: 1.0
+      description: "Quality of entity modeling, relationships, and domain logic encapsulation."
+      anchors:
+        "1": "No domain model; logic scattered without structure."
+        "2": "Basic entities identified but poor boundaries and coupling."
+        "3": "Reasonable entity model with defined relationships; some boundary issues."
+        "4": "Well-structured domain model with clear aggregates, value objects, and invariants."
+        "5": "Rich domain model with bounded contexts, event-driven integration, and ubiquitous language."
+
+    - id: "module_structure"
+      name: "Module Structure"
+      weight: 1.0
+      description: "Organization of code into cohesive, loosely-coupled modules."
+      anchors:
+        "1": "Monolithic blob; no meaningful structure."
+        "2": "Some separation but high coupling and low cohesion."
+        "3": "Identifiable modules with reasonable separation of concerns."
+        "4": "Well-defined module boundaries with explicit dependencies and clear layering."
+        "5": "Sophisticated module architecture with plugin systems, dependency inversion, and clean boundaries."
+
+    - id: "testability"
+      name: "Testability"
+      weight: 0.8
+      description: "How easy the design is to test at unit, integration, and end-to-end levels."
+      anchors:
+        "1": "Untestable design; tight coupling to external systems."
+        "2": "Difficult to test; requires extensive mocking."
+        "3": "Reasonably testable with standard dependency injection."
+        "4": "Highly testable with clear boundaries, ports/adapters, and test strategy."
+        "5": "Test-first design with contract testing, property-based testing, and test infrastructure."
+
+    - id: "error_handling"
+      name: "Error Handling"
+      weight: 0.8
+      description: "Error propagation, user feedback, recovery strategies, and edge cases."
+      anchors:
+        "1": "No error handling; crashes on unexpected input."
+        "2": "Generic catch-all handling; poor user feedback."
+        "3": "Typed errors for common cases; reasonable user messages."
+        "4": "Comprehensive error hierarchy with recovery strategies and user-friendly feedback."
+        "5": "Sophisticated error handling with retry policies, circuit breakers, graceful degradation, and telemetry."
+
+    - id: "interface_design"
+      name: "Interface Design"
+      weight: 1.0
+      description: "Quality of public APIs, contracts, and abstraction boundaries."
+      anchors:
+        "1": "No clear interfaces; implementation details exposed."
+        "2": "Basic interfaces but leaky abstractions."
+        "3": "Defined interfaces with reasonable abstraction; some inconsistency."
+        "4": "Clean interfaces with consistent patterns, versioning, and documentation."
+        "5": "Exemplary interface design with backward compatibility, discoverability, and developer ergonomics."
+
+    - id: "data_architecture"
+      name: "Data Architecture"
+      weight: 1.0
+      description: "Data storage, access patterns, schema design, and caching strategy."
+      anchors:
+        "1": "No data strategy; ad-hoc storage."
+        "2": "Basic schema without access pattern consideration."
+        "3": "Reasonable schema design with some access pattern optimization."
+        "4": "Well-designed data layer with appropriate indexing, caching, and migration strategy."
+        "5": "Sophisticated data architecture with read/write separation, event sourcing, and data lifecycle management."
+
+    - id: "security_design"
+      name: "Security Design"
+      weight: 1.0
+      description: "Authentication, authorization, input validation, and data protection."
+      anchors:
+        "1": "No security measures."
+        "2": "Basic authentication but no authorization or input validation."
+        "3": "Standard auth/authz with input validation for primary paths."
+        "4": "Comprehensive security with RBAC, CSRF protection, and secure data handling."
+        "5": "Defense-in-depth with security headers, CSP, audit logging, and vulnerability scanning."
+
+    - id: "scalability_strategy"
+      name: "Scalability Strategy"
+      weight: 0.8
+      description: "How the design accommodates growth in users, features, and data."
+      anchors:
+        "1": "No scalability consideration."
+        "2": "Acknowledges scaling needs but no strategy."
+        "3": "Basic scaling with standard patterns (caching, async processing)."
+        "4": "Multi-tier scaling with horizontal strategies and performance budgets."
+        "5": "Comprehensive scaling with load testing strategy, auto-scaling, and graceful degradation."
+
+    - id: "trade_off_awareness"
+      name: "Trade-off Awareness"
+      weight: 1.2
+      description: "Explicit discussion of design trade-offs and alternatives considered."
+      anchors:
+        "1": "No trade-offs discussed."
+        "2": "Mentions trade-offs without analysis."
+        "3": "Identifies key trade-offs with rationale."
+        "4": "Explicit analysis of alternatives with justified decisions."
+        "5": "Deep reasoning about trade-offs with reversibility assessment and migration paths."
+
+    - id: "requirement_coverage"
+      name: "Requirement Coverage"
+      weight: 1.0
+      description: "How thoroughly the design addresses all stated requirements."
+      anchors:
+        "1": "Ignores most requirements."
+        "2": "Addresses some requirements; major gaps."
+        "3": "Covers core requirements; minor gaps."
+        "4": "Addresses all stated requirements with reasonable completeness."
+        "5": "Comprehensive coverage with proactive identification of implicit needs."
+
+    - id: "extensibility"
+      name: "Extensibility"
+      weight: 0.8
+      description: "How easily the design accommodates new features and changing requirements."
+      anchors:
+        "1": "Rigid design; changes require rewrites."
+        "2": "Some extension points but high modification cost."
+        "3": "Reasonable extensibility for anticipated changes."
+        "4": "Well-designed extension points with plugin architecture and feature toggles."
+        "5": "Highly extensible with event-driven architecture, strategy patterns, and configuration-driven behavior."

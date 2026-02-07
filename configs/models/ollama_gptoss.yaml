@@ -1,0 +1,28 @@
+model:
+  id: "gpt-oss-120b"
+  provider: "ollama"
+  api_model: "gpt-oss-120b"
+
+  ollama:
+    host: "${OLLAMA_HOST:-http://localhost:11434}"
+    concurrency: 2
+    keep_alive: "30m"
+
+  pricing:
+    input: 0.00
+    output: 0.00
+    batch_discount: 0.00
+    cached_input: 0.00
+
+  parameters:
+    temperature: 0.7
+    max_tokens: 16384
+    top_p: 1.0
+
+  context_window: 128000
+  supports_batch: true
+  supports_caching: false
+
+  rate_limits:
+    requests_per_minute: 10
+    tokens_per_minute: 500000

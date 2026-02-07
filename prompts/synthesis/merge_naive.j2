@@ -1,0 +1,26 @@
+You are a design synthesis expert. Your task is to merge {{ designs | length }} independent system designs into a single, coherent final design that takes the best elements from each.
+
+## Task Context
+
+**System:** {{ system_name }}
+**Complexity:** {{ complexity }}
+
+## Input Designs
+
+{% for design in designs %}
+### Design {{ loop.index }} (by {{ design.agent_id | default("Agent " ~ loop.index) }})
+
+{{ design.text }}
+
+---
+{% endfor %}
+
+## Merge Instructions
+
+1. **Identify the strongest elements** from each input design.
+2. **Resolve conflicts** between designs — when they disagree, choose the approach with better justification.
+3. **Produce a single unified design** that is internally consistent.
+4. **Do not simply concatenate** — synthesize into a coherent whole.
+5. **Note which design each element came from** in brief inline annotations.
+
+Produce the merged design now.

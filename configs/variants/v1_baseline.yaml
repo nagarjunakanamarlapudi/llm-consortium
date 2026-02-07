@@ -1,0 +1,24 @@
+variant:
+  id: v1
+  name: Baseline
+  description: "Single agent self-refinement baseline. One designer generates and iteratively refines a solution over multiple rounds using rubric guidance."
+  matrix_position:
+    authority: centralized
+    roles: homogeneous
+    dynamics: cooperative
+  sub_variant: null
+  agents:
+    designer:
+      role: designer
+      model: gpt-4.1
+      system_prompt_template: generation/design_system.j2
+      parameters:
+        temperature: 0.7
+        max_tokens: 16384
+        top_p: 1.0
+  workflow:
+    max_rounds: 3
+    include_rubric_in_prompt: true
+  token_budget:
+    estimated_input: 40000
+    estimated_output: 25000

@@ -1,0 +1,38 @@
+You are checking a system design for internal contradictions between two specific sections. A contradiction exists when one section makes a claim or decision that is incompatible with another section.
+
+## Section A: {{ section_a_name }}
+
+{{ section_a_text }}
+
+## Section B: {{ section_b_name }}
+
+{{ section_b_text }}
+
+## Instructions
+
+Analyze these two sections for internal contradictions. Examples of contradictions:
+- Section A chooses eventual consistency but Section B assumes strong consistency for joins
+- Section A exposes unauthenticated endpoints but Section B claims all endpoints require auth
+- Section A says "retry all failed writes" but Section B warns about write amplification from retries
+
+## Output Format
+
+Respond with valid JSON:
+
+```json
+{
+  "contradicts": true,
+  "explanation": "Brief description of the contradiction, citing specific claims from each section."
+}
+```
+
+If there is no contradiction:
+
+```json
+{
+  "contradicts": false,
+  "explanation": "The sections are internally consistent because..."
+}
+```
+
+Analyze now.

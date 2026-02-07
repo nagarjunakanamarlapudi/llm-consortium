@@ -1,0 +1,23 @@
+model:
+  id: "sonnet-4.5"
+  provider: "anthropic"
+  api_model: "claude-sonnet-4-5-20250929"
+
+  pricing:
+    input: 3.00
+    output: 15.00
+    batch_discount: 0.50
+    cached_input: 0.30
+
+  parameters:
+    temperature: 0.7
+    max_tokens: 16384
+    top_p: 1.0
+
+  context_window: 200000
+  supports_batch: true
+  supports_caching: true
+
+  rate_limits:
+    requests_per_minute: 1000
+    tokens_per_minute: 400000

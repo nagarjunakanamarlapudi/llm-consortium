@@ -1,0 +1,41 @@
+task:
+  id: "t1"
+  name: "URL Shortener Service"
+  complexity: "simple"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "URL Shortener Service"
+    problem_statement: |
+      Design a highly available URL shortening service similar to bit.ly or TinyURL.
+      The service must accept long URLs and generate unique, compact short codes that
+      redirect users to the original destination with minimal latency. The system should
+      handle a large volume of read-heavy traffic, as the ratio of redirects to new URL
+      creations is expected to exceed 100:1. The service must support analytics tracking
+      for each shortened URL, including click counts, geographic distribution, referrer
+      information, and temporal access patterns. Users should be able to create custom
+      vanity slugs subject to availability, and the system must gracefully handle slug
+      collisions during generation. The platform must provide both a web interface and a
+      RESTful API for programmatic access, with rate limiting to prevent abuse. URLs
+      should support optional expiration policies and the system must handle link rot
+      detection for destination URLs.
+    hard_constraints:
+      - "Support storage and management of at least 100 million shortened URLs"
+      - "Redirect latency must be under 10ms at the 95th percentile"
+      - "System availability must meet or exceed 99.99% uptime SLA"
+      - "Support custom vanity slugs with conflict detection and resolution"
+      - "All redirects must be idempotent and safe for concurrent access"
+      - "API rate limiting of 100 requests per minute per authenticated user"
+    use_cases:
+      - "Shorten a long URL and receive a compact, shareable short link"
+      - "Redirect users from a short URL to the original destination with minimal latency"
+      - "View analytics dashboards showing click counts, geographic data, and referrer sources"
+      - "Create and manage custom alias slugs for branded or memorable short links"
+      - "Programmatically create and manage short URLs via RESTful API"
+      - "Set expiration policies on shortened URLs for time-limited campaigns"
+    complexity_drivers:
+      - "Extremely high read-to-write ratio requiring optimized caching and read replicas"
+      - "Short code generation must avoid collisions while maintaining compact length"
+      - "Real-time analytics ingestion at scale without impacting redirect latency"
+      - "Global distribution for low-latency redirects across geographic regions"

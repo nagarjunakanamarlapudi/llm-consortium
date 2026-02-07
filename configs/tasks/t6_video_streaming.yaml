@@ -1,0 +1,47 @@
+task:
+  id: "t6"
+  name: "Video Streaming Platform"
+  complexity: "complex"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "Video Streaming Platform"
+    problem_statement: |
+      Design a large-scale video streaming platform similar to Netflix that supports
+      both video-on-demand and live streaming with adaptive bitrate delivery to a
+      global audience. The platform must handle content ingestion, transcoding into
+      multiple resolutions and codec formats, secure storage, and efficient distribution
+      through a multi-tier CDN architecture. Adaptive bitrate streaming must dynamically
+      adjust video quality based on the viewer's network conditions, device capabilities,
+      and available bandwidth to minimize buffering while maximizing visual quality.
+      The content management system must support uploading, metadata tagging,
+      categorization, and editorial curation of a library of millions of titles. A
+      machine learning recommendation engine must provide personalized content
+      suggestions based on viewing history, explicit ratings, implicit engagement
+      signals, and collaborative filtering across the user base. Digital rights
+      management must protect content with studio-grade DRM supporting Widevine,
+      FairPlay, and PlayReady across all target devices. Live streaming must support
+      low-latency delivery for sports and events with DVR-like rewind capability.
+      The platform must provide comprehensive analytics including viewer engagement
+      metrics, quality-of-experience monitoring, and content performance dashboards.
+    hard_constraints:
+      - "Support at least 10 million concurrent video streams across global regions"
+      - "Video playback start time must be under 2 seconds at the 95th percentile"
+      - "Adaptive bitrate streaming across resolutions from 360p to 4K HDR"
+      - "Global CDN with edge caching achieving 95%+ cache hit ratio for popular content"
+      - "Studio-grade DRM supporting Widevine, FairPlay, and PlayReady simultaneously"
+      - "Live streaming latency under 5 seconds for real-time events"
+    use_cases:
+      - "Browse and play video-on-demand content with instant start and adaptive quality"
+      - "Watch live streaming events with low-latency delivery and DVR rewind capability"
+      - "Upload and transcode content into multiple resolutions, codecs, and container formats"
+      - "Receive personalized content recommendations based on viewing history and preferences"
+      - "Search and discover content by title, genre, actor, director, and natural language queries"
+      - "Monitor quality of experience metrics including rebuffering ratio, start time, and bitrate"
+    complexity_drivers:
+      - "Adaptive bitrate streaming requiring real-time bandwidth estimation and quality switching"
+      - "Global multi-tier CDN architecture with intelligent origin shielding and cache warming"
+      - "DRM integration across multiple platforms with license server management and key rotation"
+      - "ML-based recommendation pipeline processing billions of implicit engagement signals"
+      - "Live streaming ingest, transcoding, and distribution with sub-5-second end-to-end latency"

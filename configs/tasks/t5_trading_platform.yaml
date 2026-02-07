@@ -1,0 +1,46 @@
+task:
+  id: "t5"
+  name: "Real-Time Trading Platform"
+  complexity: "complex"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "Real-Time Trading Platform"
+    problem_statement: |
+      Design a real-time electronic trading platform supporting equities, options, and
+      cryptocurrency markets with ultra-low-latency order matching and execution. The
+      platform must implement a high-performance central limit order book (CLOB) with
+      price-time priority matching that processes orders with sub-millisecond latency.
+      The system must handle market orders, limit orders, stop orders, and complex
+      multi-leg options strategies. Real-time portfolio valuation must reflect current
+      market prices with mark-to-market calculations updated on every tick. A
+      comprehensive risk management engine must enforce pre-trade risk checks including
+      position limits, margin requirements, buying power validation, and circuit breakers
+      for abnormal market conditions. The platform must maintain a complete, immutable
+      audit trail of every order, modification, cancellation, and fill for regulatory
+      compliance with SEC, FINRA, and applicable cryptocurrency regulations. Market data
+      must be distributed to all connected clients with minimal latency via streaming
+      feeds. The system must support multi-asset settlement with T+1 for equities, T+0
+      for crypto, and standard options settlement cycles. Disaster recovery must
+      guarantee zero data loss with automatic failover completing in under one second.
+    hard_constraints:
+      - "Support at least 100,000 concurrent users with real-time market data streaming"
+      - "Order-to-fill latency must be under 5ms at the 99th percentile"
+      - "Full SEC and FINRA regulatory compliance with immutable audit trail"
+      - "Zero data loss guarantee with RPO=0 and RTO<1s for disaster recovery"
+      - "Pre-trade risk checks must complete within the order processing latency budget"
+      - "Multi-asset settlement supporting T+1 equities, T+0 crypto, and standard options cycles"
+    use_cases:
+      - "Submit market, limit, and stop orders with immediate confirmation and fill reporting"
+      - "Maintain and query a real-time central limit order book with full depth-of-market visibility"
+      - "Calculate real-time portfolio valuation with mark-to-market on every price tick"
+      - "Enforce pre-trade risk controls including margin checks, position limits, and circuit breakers"
+      - "Stream real-time market data including quotes, trades, and order book updates to all clients"
+      - "Generate regulatory reports and maintain immutable audit trails for all trading activity"
+    complexity_drivers:
+      - "Ultra-low-latency order matching requiring lock-free data structures and kernel bypass networking"
+      - "Regulatory compliance across multiple jurisdictions with differing rules for each asset class"
+      - "Multi-asset settlement with different clearing cycles, counterparty risk, and reconciliation"
+      - "Real-time risk engine performing complex calculations within the order processing path"
+      - "Deterministic replay and disaster recovery with guaranteed zero message loss"

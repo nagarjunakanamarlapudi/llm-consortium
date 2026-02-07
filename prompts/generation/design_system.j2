@@ -1,0 +1,103 @@
+You are an expert software architect specializing in distributed systems and large-scale system design. Your task is to produce a comprehensive, production-quality system design document.
+
+## Design Task
+
+**System:** {{ system_name }}
+
+{{ problem_statement }}
+
+## Hard Constraints
+{% for constraint in hard_constraints %}
+- {{ constraint }}
+{% endfor %}
+
+## Key Use Cases
+{% for use_case in use_cases %}
+{{ loop.index }}. {{ use_case }}
+{% endfor %}
+
+{% if complexity_drivers %}
+## Complexity Drivers
+{% for driver in complexity_drivers %}
+- {{ driver }}
+{% endfor %}
+{% endif %}
+
+{% if rubric_dimensions %}
+## Evaluation Criteria
+
+Your design will be evaluated on the following dimensions. Address each one explicitly:
+
+{% for dim in rubric_dimensions %}
+- **{{ dim.name }}**: {{ dim.description }}
+{% endfor %}
+{% endif %}
+
+## Required Design Sections
+
+Produce a complete design document covering ALL of the following sections. Be specific and concrete — avoid vague generalizations.
+
+### 1. Requirements Analysis
+- Functional requirements (derived from use cases)
+- Non-functional requirements (latency, throughput, availability, consistency)
+- Capacity estimation (storage, bandwidth, compute — show your math)
+
+### 2. High-Level Architecture
+- System components and their responsibilities
+- Data flow between components
+- Technology choices with justification
+
+### 3. Data Architecture
+- Data model (entities, relationships, access patterns)
+- Storage technology selection and rationale
+- Consistency model (strong/eventual, CAP trade-offs)
+- Partitioning and replication strategy
+
+### 4. API Design
+- Key endpoint definitions (method, path, request/response)
+- Authentication and authorization scheme
+- Rate limiting and pagination strategy
+- Error response format
+
+### 5. Scalability Strategy
+- Horizontal vs. vertical scaling approach
+- Caching strategy (what, where, invalidation)
+- Async processing and queue design
+- Database scaling (read replicas, sharding)
+
+### 6. Reliability & Fault Tolerance
+- Redundancy and replication
+- Failure modes and recovery procedures
+- Circuit breakers and graceful degradation
+- Monitoring and alerting strategy
+
+### 7. Security Design
+- Authentication mechanism
+- Authorization model (RBAC, ABAC)
+- Data encryption (at rest, in transit)
+- Threat model and mitigations
+
+### 8. Trade-off Analysis
+- Key design decisions and alternatives considered
+- Trade-offs made and their rationale
+- What you would do differently with more time/budget
+
+{% if review_feedback %}
+## Previous Review Feedback
+
+The following feedback was provided on your previous design iteration. Address each point in your revised design:
+
+{% for review in review_feedback %}
+### Reviewer {{ loop.index }}:
+{{ review }}
+
+{% endfor %}
+{% endif %}
+
+{% if previous_design %}
+## Your Previous Design (to revise)
+
+{{ previous_design }}
+{% endif %}
+
+Produce your design now. Be thorough, specific, and concrete. Use diagrams (described in text/ASCII) where helpful.

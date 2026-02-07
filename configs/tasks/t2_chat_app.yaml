@@ -1,0 +1,43 @@
+task:
+  id: "t2"
+  name: "Real-Time Chat Application"
+  complexity: "simple"
+  design_type: "application"
+  rubric: "application_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "Real-Time Chat Application"
+    problem_statement: |
+      Design a real-time messaging application that supports both one-on-one and group
+      conversations, similar to Slack or WhatsApp. The application must deliver messages
+      with near-instantaneous latency and guarantee correct message ordering within each
+      conversation thread. The system must implement end-to-end encryption so that
+      messages are only readable by intended recipients, with the server never having
+      access to plaintext content. Users should be able to share files, images, and
+      media within conversations with automatic thumbnail generation and preview support.
+      The application must provide robust offline support, queuing messages when the user
+      is disconnected and synchronizing seamlessly upon reconnection without message
+      duplication or loss. Full-text search across message history must be supported
+      while respecting encryption constraints. Presence indicators (online, away,
+      typing) must update in real time across all connected clients. The system should
+      support message reactions, threading, pinned messages, and read receipts.
+    hard_constraints:
+      - "Support at least 10 million registered users with 1 million concurrent connections"
+      - "Message delivery latency must be under 100ms for online recipients"
+      - "End-to-end encryption for all message content using established cryptographic protocols"
+      - "Offline message queuing and conflict-free synchronization upon reconnection"
+      - "Group chats must support up to 1,000 participants with consistent message ordering"
+      - "File sharing support for attachments up to 100MB with resumable uploads"
+    use_cases:
+      - "Send and receive one-on-one messages in real time with delivery and read receipts"
+      - "Create and manage group conversations with role-based permissions and moderation"
+      - "Share files, images, and media with inline previews and thumbnail generation"
+      - "Search across message history with filters for sender, date range, and content type"
+      - "View real-time presence and typing indicators for contacts and group members"
+      - "Synchronize message history across multiple devices with offline support"
+    complexity_drivers:
+      - "Real-time bidirectional message delivery using persistent connections at scale"
+      - "Causal message ordering guarantees across distributed participants"
+      - "Presence tracking and fan-out for typing indicators across large groups"
+      - "End-to-end encryption key management including group key rotation"
+      - "Offline-first architecture with conflict-free replicated data synchronization"

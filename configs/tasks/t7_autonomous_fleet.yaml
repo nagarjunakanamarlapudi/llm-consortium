@@ -1,0 +1,49 @@
+task:
+  id: "t7"
+  name: "Autonomous Vehicle Fleet Management"
+  complexity: "complex"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "Autonomous Vehicle Fleet Management"
+    problem_statement: |
+      Design a fleet management platform for autonomous vehicles that provides real-time
+      telemetry ingestion, intelligent route optimization, safety monitoring, and
+      centralized fleet coordination. The system must ingest high-frequency telemetry
+      data from thousands of vehicles simultaneously, including GPS coordinates, speed,
+      acceleration, sensor health, battery or fuel levels, and environmental conditions.
+      Real-time geospatial processing must support dynamic route optimization that
+      accounts for traffic conditions, road closures, weather, passenger demand patterns,
+      and vehicle range constraints. The safety monitoring subsystem must operate as a
+      safety-critical component with 99.999% availability, processing vehicle health
+      diagnostics, detecting anomalous driving patterns, and triggering immediate
+      intervention protocols such as remote vehicle stop or safe harbor routing when
+      critical faults are detected. The platform must support vehicle-to-everything
+      (V2X) communication for coordinating with traffic infrastructure, other vehicles,
+      and pedestrian detection systems. Fleet scheduling must optimize vehicle
+      utilization including autonomous charging or refueling coordination, predictive
+      maintenance scheduling based on component wear models, and demand-responsive
+      dispatching. The system must maintain full regulatory compliance with transportation
+      authority requirements, including trip logging, incident reporting, and autonomous
+      vehicle operational domain restrictions.
+    hard_constraints:
+      - "Support at least 10,000 autonomous vehicles reporting telemetry simultaneously"
+      - "Telemetry ingestion-to-processing latency must be under 1 second end-to-end"
+      - "Safety-critical monitoring systems must achieve 99.999% availability"
+      - "Full regulatory compliance with transportation authority and AV operational requirements"
+      - "V2X communication latency under 100ms for safety-relevant vehicle coordination"
+      - "Geofencing enforcement for autonomous vehicle operational design domains"
+    use_cases:
+      - "Track real-time position, speed, and status of all vehicles on a live geospatial dashboard"
+      - "Optimize routes dynamically based on traffic, weather, demand, and vehicle range constraints"
+      - "Monitor vehicle health and safety systems with automated anomaly detection and intervention"
+      - "Schedule fleet operations including dispatching, charging coordination, and maintenance windows"
+      - "Coordinate vehicle-to-everything communication with traffic infrastructure and other vehicles"
+      - "Generate regulatory compliance reports including trip logs, incident reports, and ODD adherence"
+    complexity_drivers:
+      - "Real-time geospatial stream processing for thousands of concurrent vehicle telemetry feeds"
+      - "Safety-critical system design with redundant failover and deterministic response times"
+      - "Vehicle-to-everything communication protocols with stringent latency and reliability requirements"
+      - "Predictive maintenance modeling using sensor data, component wear curves, and fleet-wide analytics"
+      - "Multi-objective route optimization balancing efficiency, safety, passenger experience, and energy"

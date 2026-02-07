@@ -1,0 +1,34 @@
+variant:
+  id: v8
+  name: Structured Debate
+  description: "Multiple debaters argue for competing design approaches through structured rounds of position statements and rebuttals, then a judge synthesizes the strongest arguments into a final solution."
+  matrix_position:
+    authority: decentralized
+    roles: homogeneous
+    dynamics: adversarial
+  sub_variant: null
+  agents:
+    debaters:
+      role: debater
+      model: gpt-4.1
+      system_prompt_template: debate/position_assignment.j2
+      parameters:
+        temperature: 0.8
+        max_tokens: 16384
+        top_p: 1.0
+      count: 3
+    judge:
+      role: judge
+      model: gpt-4.1
+      system_prompt_template: debate/judge_ruling.j2
+      parameters:
+        temperature: 0.3
+        max_tokens: 16384
+        top_p: 1.0
+  workflow:
+    max_rounds: 3
+    rebuttal_template: debate/rebuttal.j2
+    synthesis_template: synthesis/merge_dialectical.j2
+  token_budget:
+    estimated_input: 140000
+    estimated_output: 85000

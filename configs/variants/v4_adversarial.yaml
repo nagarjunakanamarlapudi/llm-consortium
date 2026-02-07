@@ -1,0 +1,32 @@
+variant:
+  id: v4
+  name: Adversarial Reviewer
+  description: "A centralized leader generates the design while an adversarial reviewer actively challenges assumptions, identifies weaknesses, and stress-tests the solution."
+  matrix_position:
+    authority: centralized
+    roles: homogeneous
+    dynamics: adversarial
+  sub_variant: null
+  agents:
+    leader:
+      role: designer
+      model: gpt-4.1
+      system_prompt_template: generation/design_system.j2
+      parameters:
+        temperature: 0.7
+        max_tokens: 16384
+        top_p: 1.0
+    adversarial_reviewer:
+      role: adversarial
+      model: gpt-4.1
+      system_prompt_template: review/adversarial_review.j2
+      parameters:
+        temperature: 0.3
+        max_tokens: 8192
+        top_p: 1.0
+  workflow:
+    max_rounds: 3
+    include_rubric_in_prompt: true
+  token_budget:
+    estimated_input: 80000
+    estimated_output: 50000

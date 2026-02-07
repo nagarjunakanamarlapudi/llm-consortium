@@ -1,0 +1,23 @@
+model:
+  id: "gpt-4.1"
+  provider: "openai"
+  api_model: "gpt-4.1-2025-04-14"
+
+  pricing:
+    input: 2.00
+    output: 8.00
+    batch_discount: 0.50
+    cached_input: 0.50
+
+  parameters:
+    temperature: 0.7
+    max_tokens: 16384
+    top_p: 1.0
+
+  context_window: 1000000
+  supports_batch: true
+  supports_caching: true
+
+  rate_limits:
+    requests_per_minute: 500
+    tokens_per_minute: 2000000

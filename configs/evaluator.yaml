@@ -1,0 +1,27 @@
+evaluator:
+  model: "sonnet-4.5"
+
+  runs_per_design: 3
+  aggregation: "median"
+
+  prompt_template: "evaluation/evaluate_design.j2"
+
+  parameters:
+    temperature: 0.2
+    max_tokens: 4096
+
+  coherence_check:
+    enabled: true
+    prompt_template: "evaluation/coherence_check.j2"
+    section_pairs:
+      - ["data_architecture", "scalability_strategy"]
+      - ["api_design", "security_design"]
+      - ["error_handling", "trade_off_awareness"]
+
+  reliability:
+    min_krippendorff_alpha: 0.7
+    human_validation_sample_size: 20
+
+  batch:
+    enabled: true
+    batch_size: 50

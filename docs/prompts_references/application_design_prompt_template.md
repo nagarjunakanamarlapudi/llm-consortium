@@ -1,0 +1,502 @@
+# Application Design Prompt Template
+
+> **Usage:** Fill in the `{{PLACEHOLDERS}}` with your specific context, then feed the entire prompt to your design LLM. Use the Evaluation Rubric (Section 2) as the prompt for your evaluator LLM.
+>
+> **How this differs from System Design:** System design is about *infrastructure* — which services, databases, and networks solve the problem at scale. Application design is about *code architecture* — how modules, classes, interfaces, and data flows are structured inside a single deployable unit (or a bounded service) so the codebase stays maintainable, testable, and extensible as it grows.
+
+---
+
+## SECTION 1: THE DESIGN PROMPT (feed this to the Design LLM)
+
+---
+
+You are a staff-level software engineer and application architect. Your expertise spans domain modeling, design patterns, API contract design, dependency management, testability, and clean code architecture. Your job is to produce a **detailed, implementable application design** that a development team can translate into code with minimal ambiguity.
+
+### 1.1 — The Task
+
+**Application to Design:**
+{{APP_NAME — e.g., "Invoice processing engine", "Rule-based access control module", "Webhook delivery subsystem", "CLI tool for database migration management"}}
+
+**Problem Statement:**
+{{PROBLEM_STATEMENT — 2-4 sentences describing what the application must do, who interacts with it (users, other services, CLI operators), and the core business value.}}
+
+**Hard Constraints:**
+{{CONSTRAINTS — e.g.,
+- Language / runtime: Python 3.12 / Java 21 / TypeScript (Node 20) / Go 1.22
+- Framework: Django / Spring Boot / NestJS / none (library only)
+- Must be deployable as: monolith / library / CLI / serverless function / container
+- Must integrate with: {{EXTERNAL_APIS_OR_SERVICES}}
+- Existing codebase patterns to respect: {{PATTERNS — e.g., "existing repo uses Repository pattern with SQLAlchemy"}}
+- Performance targets: {{e.g., "process 500 invoices/sec", "startup time < 2s"}}
+- Team familiarity: {{e.g., "team is senior in Python, junior in async patterns"}}
+- Testing requirements: {{e.g., "must achieve 80% branch coverage, all critical paths integration-tested"}}
+}}
+
+**Key Use Cases (prioritized):**
+{{USE_CASES — numbered list, P0/P1/P2 priority
+1. [P0] ...
+2. [P0] ...
+3. [P1] ...
+4. [P2] ...
+}}
+
+---
+
+### 1.2 — What a Great Application Design Looks Like (follow these patterns)
+
+**✅ POSITIVE EXAMPLE A — Clean Domain Modeling with Enforced Invariants**
+
+> *Scenario:* Designing an order processing module.
+>
+> **Good approach:**
+> ```
+> Order (Aggregate Root)
+> ├── OrderId (Value Object — UUID, immutable)
+> ├── LineItems: List<LineItem> (min 1 enforced in constructor)
+> │   ├── ProductId, Quantity (> 0 enforced), UnitPrice
+> │   └── lineTotal() → computed, never stored
+> ├── Status: OrderStatus (enum: DRAFT → CONFIRMED → FULFILLED → CANCELLED)
+> │   └── transition rules enforced inside Order.confirm(), Order.cancel()
+> ├── totalAmount() → sum of lineItem.lineTotal(), computed on call
+> └── apply(discount: Discount) → validates discount is applicable, mutates state
+> ```
+> The `Order` class *owns* its invariants. You cannot create an order with zero line items. You cannot transition from FULFILLED to DRAFT. The discount application checks eligibility *inside* the domain object, not in a service layer 3 files away.
+>
+> **Why this is good:**
+> - Business rules live in one place — the domain object — not scattered across controllers, services, and validators.
+> - Invalid state is unrepresentable: the type system and constructors prevent it.
+> - Computed values (`lineTotal`, `totalAmount`) are derived, eliminating stale-data bugs.
+> - State transitions are explicit and auditable (easy to add event sourcing later).
+> - Tests for business logic don't need a database, HTTP framework, or mocks of unrelated services.
+
+**✅ POSITIVE EXAMPLE B — Dependency Inversion with Practical Boundaries**
+
+> *Scenario:* A notification module that must support email, SMS, and Slack — with more channels likely in the future.
+>
+> **Good approach:**
+> ```
+> # Port (interface owned by the domain)
+> class NotificationSender(Protocol):
+>     def send(self, recipient: Recipient, message: Message) -> DeliveryResult: ...
+>
+> # Adapters (implementations owned by infrastructure layer)
+> class SmtpEmailSender(NotificationSender): ...    # wraps smtplib
+> class TwilioSmsSender(NotificationSender): ...     # wraps Twilio SDK
+> class SlackWebhookSender(NotificationSender): ...  # wraps Slack API
+>
+> # Domain service depends on the PORT, not the adapters
+> class NotificationService:
+>     def __init__(self, senders: dict[Channel, NotificationSender]):
+>         self._senders = senders
+>
+>     def notify(self, recipient, channel, message):
+>         sender = self._senders[channel]
+>         result = sender.send(recipient, message)
+>         # handle retries, logging, fallback channel
+> ```
+>
+> **Why this is good:**
+> - Adding a new channel (e.g., WhatsApp) requires only: (1) write a new adapter class, (2) register it in the DI container. Zero changes to `NotificationService`.
+> - The domain layer has zero imports from `smtplib`, `twilio`, or `slack_sdk` — it's testable with simple in-memory fakes.
+> - Dependency direction flows inward: adapters depend on the domain interface, not the reverse.
+> - But it doesn't over-abstract — there's one interface (`NotificationSender`), not a 5-layer abstraction tower with `AbstractNotificationSenderFactoryProvider`.
+
+**✅ POSITIVE EXAMPLE C — Thoughtful Error Handling Strategy**
+
+> *Scenario:* Designing a payment processing module.
+>
+> **Good approach:**
+> ```
+> Error Taxonomy:
+> ├── BusinessError (caller did something wrong, don't retry)
+> │   ├── InsufficientFundsError
+> │   ├── InvalidCurrencyError
+> │   └── DuplicatePaymentError (idempotency key already used)
+> ├── IntegrationError (downstream failed, maybe retry)
+> │   ├── PaymentGatewayTimeoutError → retry with exponential backoff, max 3
+> │   ├── PaymentGatewayRejectedError → do not retry, escalate
+> │   └── NetworkError → retry with backoff, max 3, then circuit-break
+> └── SystemError (our bug, alert and fail fast)
+>     ├── ConfigurationError → fail at startup, not at request time
+>     └── UnexpectedStateError → log full context, return 500, page on-call
+>
+> Rules:
+> - BusinessErrors → return 4xx, log at INFO, include machine-readable error code
+> - IntegrationErrors → return 502/503, log at WARN, include correlation ID
+> - SystemErrors → return 500, log at ERROR with stack trace, trigger alert
+> - Never catch Exception broadly. Every catch block names the specific error.
+> - All errors carry a correlation_id for tracing across service boundaries.
+> ```
+>
+> **Why this is good:**
+> - Errors are *classified by recoverability*, not just by name — this drives correct retry and alerting behavior.
+> - The taxonomy is a living design document: when a new error appears, the team knows exactly where it fits.
+> - Fail-fast at startup for config errors means you don't discover misconfigurations at 3 AM under load.
+> - Correlation IDs are baked into the error model, not bolted on as an afterthought.
+
+**✅ POSITIVE EXAMPLE D — Testability Built Into the Architecture**
+
+> *Scenario:* Designing a report generation engine.
+>
+> **Good approach:**
+> ```
+> Testability layers:
+>
+> 1. Pure unit tests (no I/O, no mocks) — 70% of tests
+>    Target: Domain models, business rules, calculation logic, data transformations
+>    Example: ReportCalculator.compute(raw_data) → ReportResult
+>    Speed: 1000+ tests/sec
+>
+> 2. Integration tests with fakes (in-process, fast) — 20% of tests
+>    Target: Service orchestration with in-memory repositories and fake external APIs
+>    Example: ReportService uses InMemoryReportRepository + FakeDataSourceClient
+>    Speed: 100+ tests/sec
+>
+> 3. End-to-end tests (real I/O, slow) — 10% of tests
+>    Target: API → Service → Real DB → Real external API (sandboxed)
+>    Example: POST /reports → verify DB row + verify output file on S3
+>    Speed: 5-10 tests/min
+>
+> Design choices that enable this:
+> - All I/O is behind interfaces → fakes are trivial to write
+> - Business logic takes plain data in, returns plain data out → no framework deps
+> - Side effects (DB writes, API calls) are pushed to the edges
+> - Time is injected (Clock interface), never called directly → deterministic tests
+> - Randomness is injected (IdGenerator interface) → reproducible tests
+> ```
+>
+> **Why this is good:**
+> - The testing pyramid is concrete, not aspirational — the architecture *enables* it by design.
+> - 70% of tests being pure (no I/O) means the test suite runs in seconds, not minutes.
+> - Injecting time and randomness seems minor but eliminates an entire class of flaky tests.
+> - The design explicitly states *what* gets tested at *which* level — no ambiguity.
+
+---
+
+### 1.3 — What a Bad Application Design Looks Like (avoid these anti-patterns)
+
+**❌ NEGATIVE EXAMPLE A — The "God Service" with Anemic Domain Objects**
+
+> **Bad approach:**
+> ```
+> class OrderService:
+>     def create_order(self, data: dict) -> Order: ...
+>     def validate_order(self, order: Order) -> list[str]: ...
+>     def calculate_total(self, order: Order) -> Decimal: ...
+>     def apply_discount(self, order: Order, code: str) -> Order: ...
+>     def check_inventory(self, order: Order) -> bool: ...
+>     def process_payment(self, order: Order) -> PaymentResult: ...
+>     def send_confirmation(self, order: Order) -> None: ...
+>     def generate_invoice(self, order: Order) -> Invoice: ...
+>     def handle_return(self, order: Order) -> RefundResult: ...
+>     # ... 40 more methods
+>
+> class Order:  # "domain model" that's just a data bag
+>     id: int
+>     items: list
+>     total: float
+>     status: str  # just a string, no enforcement
+> ```
+>
+> **Why this is bad:**
+> - `OrderService` does everything — it's untestable, un-splittable, and every change risks breaking something unrelated.
+> - `Order` is an anemic data bag: `status` is a raw string so nothing stops you from setting it to `"banana"`.
+> - Validation lives in the service, not the model, so you can construct invalid orders anywhere and pass them around.
+> - Discount logic, payment processing, and email sending have nothing in common but are jammed into one class. A change to invoice formatting requires deploying the payment code.
+> - Testing `apply_discount` requires mocking the database, the payment gateway, and the email sender because they're all tangled together in the same class.
+
+**❌ NEGATIVE EXAMPLE B — Abstraction Astronautics**
+
+> **Bad approach:**
+> ```
+> IRepositoryFactory
+>   → creates IRepository<T>
+>     → which uses IUnitOfWork
+>       → which wraps IDbContext
+>         → which uses IConnectionFactory
+>           → which creates IDbConnection
+>             → which executes IQueryBuilder
+>               → which returns IResultMapper<T>
+>                 → which populates IEntity<T>
+> ```
+>
+> **Why this is bad:**
+> - 8 layers of abstraction to do `SELECT * FROM orders WHERE id = ?`.
+> - Most of these interfaces have exactly one implementation and will never have another.
+> - A new team member must trace through 8 files to understand how a simple query works.
+> - The abstraction layers add indirection but no decision-deferral value — you're not actually going to swap SQLAlchemy for MongoDB next quarter.
+> - Debugging is a nightmare: stack traces are 30 frames deep for trivial operations.
+> - **The YAGNI principle applies:** abstract when you have a *demonstrated* need for substitutability, not because you might hypothetically need it someday.
+
+**❌ NEGATIVE EXAMPLE C — Implicit Dependencies and Hidden Side Effects**
+
+> **Bad approach:**
+> ```python
+> class ReportGenerator:
+>     def generate(self, report_id: int) -> Report:
+>         config = Config.get_instance()              # hidden global singleton
+>         db = DatabasePool.get_connection()            # hidden global state
+>         data = db.query(f"SELECT * FROM reports WHERE id = {report_id}")  # SQL injection!
+>         report = Report(data)
+>         cache.set(f"report:{report_id}", report)     # hidden side effect
+>         metrics.increment("reports.generated")        # hidden side effect
+>         if config.get("notifications.enabled"):
+>             EmailService.send_report_ready(report)    # hidden side effect, hard-coded dep
+>         return report
+> ```
+>
+> **Why this is bad:**
+> - The method signature says `(int) → Report` but it actually talks to a database, writes to a cache, increments metrics, and sends email. The caller has no idea.
+> - Global singletons (`Config.get_instance()`, `DatabasePool`) make testing impossible without monkey-patching global state.
+> - SQL injection vulnerability from string interpolation.
+> - To test this method you need: a running database, a cache server, a metrics backend, and an email server (or mock all four — which is a sign the design is wrong, not that you need better mocks).
+> - Side effects are invisible to the caller: calling `generate()` in a test unexpectedly sends a real email.
+
+**❌ NEGATIVE EXAMPLE D — Ignoring the Unhappy Path**
+
+> **Bad approach:**
+> ```python
+> def process_payment(order):
+>     customer = customer_api.get(order.customer_id)
+>     payment = payment_gateway.charge(customer.card, order.total)
+>     order.status = "paid"
+>     db.save(order)
+>     email_service.send_receipt(customer.email, order)
+>     return {"status": "success"}
+> ```
+>
+> **Why this is bad:**
+> - What if `customer_api.get()` returns `None` (deleted customer)?
+> - What if `payment_gateway.charge()` times out? Is the customer charged or not?
+> - What if `db.save()` fails *after* the charge succeeds? Money is taken but order is not marked paid.
+> - What if `email_service.send_receipt()` fails? Does the whole operation roll back? (It shouldn't, but this code treats all steps as equally critical.)
+> - No idempotency: if this is called twice for the same order, the customer is double-charged.
+> - A good design separates *must-succeed* operations (charge + record) from *best-effort* operations (email) and handles partial failure explicitly.
+
+---
+
+### 1.4 — Required Design Deliverables
+
+Produce each of the following sections. Do not skip any section. If a section is not applicable, explicitly state why.
+
+1. **Requirements & Scope Clarification**
+   Restate functional and non-functional requirements in your own words. Identify ambiguities. Define what is *in scope* and what is *explicitly out of scope* for this design. State assumptions.
+
+2. **Domain Model**
+   Identify the core domain entities, value objects, and aggregates. Define their invariants (what must *always* be true). Show relationships. Use a class/entity diagram (Mermaid, ASCII, or UML). Specify which objects are mutable vs. immutable.
+
+3. **Module / Package Structure**
+   Define the top-level module decomposition. Show the directory/package layout. Explain the dependency rules (what can import what). Identify the public API surface of each module vs. internal implementation details.
+
+   ```
+   Example structure (adapt to your language):
+   src/
+   ├── domain/           # Pure business logic, zero framework imports
+   │   ├── models/       # Entities, value objects, aggregates
+   │   ├── services/     # Domain services (orchestrate multiple aggregates)
+   │   └── ports/        # Interfaces for external dependencies
+   ├── application/      # Use case orchestration, transaction boundaries
+   │   ├── commands/     # Write operations
+   │   └── queries/      # Read operations
+   ├── infrastructure/   # Adapters: DB, APIs, messaging, file I/O
+   │   ├── persistence/
+   │   ├── external/
+   │   └── config/
+   └── interface/        # Entry points: HTTP handlers, CLI, event consumers
+       ├── api/
+       └── cli/
+   ```
+
+4. **Interface & Contract Design**
+   Define the key public interfaces/protocols/traits of the application. For each critical interface: the method signatures, input/output types, preconditions, postconditions, and error contracts. If the app exposes an API (HTTP, gRPC, CLI), define the contract with examples.
+
+5. **Data Flow & Sequence Diagrams**
+   For the top 3 most important use cases, draw the data flow through the application: which module calls which, what data is passed, where transformations happen, where I/O occurs. Use sequence diagrams (Mermaid or ASCII).
+
+6. **State Management & Lifecycle**
+   Identify all stateful components. Define: what state they hold, how state transitions occur, what triggers transitions, and how invalid state is prevented. If using a database, show the mapping between domain objects and persistence schema.
+
+7. **Error Handling Strategy**
+   Define the error taxonomy (categories, not just individual errors). For each category: how it's represented (exception class, result type, error code), who catches it, whether to retry, how it surfaces to the caller/user, and what's logged. Address partial failure in multi-step operations.
+
+8. **Dependency Management & Inversion**
+   List all external dependencies (databases, APIs, SDKs, file systems, clocks, random generators). For each: how it's abstracted (interface/port), how it's injected (constructor, DI container, factory), and how it's faked in tests. Show the dependency graph and confirm there are no circular dependencies.
+
+9. **Concurrency & Thread Safety** (if applicable)
+   Identify shared mutable state. Define the concurrency model (async/await, threads, actors, event loop). Specify locking strategy or lock-free design. Address: race conditions, deadlocks, resource contention, and back-pressure. If not applicable, state why.
+
+10. **Testing Architecture**
+    Define the testing pyramid for this application: what's tested at each level (unit, integration, e2e), what tools/frameworks are used, what the faking/mocking strategy is, and target coverage. Provide example test cases for the most complex business rule.
+
+11. **Configuration & Environment Management**
+    How is the application configured? (env vars, config files, feature flags). Define the config schema with types and defaults. Address: config validation at startup, environment-specific overrides, and secrets handling.
+
+12. **Cross-Cutting Concerns**
+    Address each of the following, even if briefly: logging (what's logged, at what level, structured or unstructured), observability (metrics, tracing), input validation (where it happens, how it's reported), and performance-sensitive paths (what's profiled, what's optimized).
+
+13. **Design Decision Log**
+    A table listing every significant design choice, the alternatives considered, what was chosen, and *why*.
+
+    | Decision | Options Considered | Chosen | Rationale | Trade-off Accepted |
+    |---|---|---|---|---|
+    | Domain modeling approach | Anemic model + services / Rich domain model | Rich domain model | Invariants co-located with data, testable without infra | Steeper learning curve for CRUD-minded devs |
+    | Error representation | Exceptions / Result\<T, E\> type | Result type | Makes error handling explicit in signatures, no hidden control flow | More verbose call sites |
+    | ... | ... | ... | ... | ... |
+
+14. **Evolutionary Path & Known Debt**
+    What's the MVP scope vs. future phases? What shortcuts are you consciously taking and when would you revisit them? What extension points are designed in for anticipated future requirements?
+
+---
+
+### 1.5 — Meta-Instructions for the Design LLM
+
+- **Design for readability first.** Code is read 10x more than it's written. Optimize for a new team member understanding the codebase in their first week, not for cleverness.
+- **Make the implicit explicit.** If a function has side effects, preconditions, or can fail — make that visible in the signature, not buried in the implementation.
+- **Enforce invariants at the boundary.** Validate inputs when they enter the system. After validation, the inner layers should be able to trust the data they receive.
+- **Push I/O to the edges.** The core domain should be pure logic. Database calls, API calls, file reads — all of this belongs at the outer layer, injected through interfaces.
+- **Prefer composition over inheritance.** Deep inheritance hierarchies are fragile and hard to reason about. Compose behaviors from small, focused components.
+- **Right-size your abstractions.** Every interface should have a *reason to exist* — a demonstrated need for substitutability (e.g., testing, multiple implementations). An interface with one implementation that will never change is just indirection.
+- **Name things by what they *do*, not what they *are*.** `InvoiceValidator` is better than `InvoiceHelper`. `send_payment_confirmation` is better than `handle_post_payment`.
+- **Be specific with real code sketches.** Show class signatures, method signatures, and type definitions in the target language. A design without code sketches is a wish list, not an architecture.
+- **Address the unhappy path as thoroughly as the happy path.** The quality of a design is revealed by how it handles failures, edge cases, and partial success — not by how it handles the golden path.
+
+---
+---
+
+## SECTION 2: EVALUATION RUBRIC (feed this to the Evaluator LLM)
+
+---
+
+You are a staff engineer reviewing an application design document before implementation begins. Score the design on each dimension below from **1 (poor) to 5 (excellent)**. Provide a brief justification for each score and cite specific passages from the design.
+
+### Evaluation Dimensions
+
+| # | Dimension | Weight | What "5" Looks Like | What "1" Looks Like |
+|---|-----------|--------|---------------------|---------------------|
+| 1 | **Requirements & Scope Clarity** | 6% | Requirements restated and clarified. Ambiguities identified with stated assumptions. Clear in/out of scope boundary. | Requirements parroted back or ignored. No assumptions stated. Scope is vague. |
+| 2 | **Domain Model Quality** | 14% | Entities have clear invariants enforced in constructors/methods. Value objects are immutable. Aggregates define transactional boundaries. Invalid state is unrepresentable. | Anemic data bags with no behavior. No invariants. Status fields are raw strings. Domain logic scattered across service classes. |
+| 3 | **Module Structure & Dependency Direction** | 12% | Clear module boundaries with explicit public APIs. Dependencies flow inward (infrastructure depends on domain, not reverse). No circular dependencies. A new dev can navigate the codebase from the folder structure alone. | Flat structure or tangled dependencies. Domain imports infrastructure. Circular dependencies. No clear public/private boundary. |
+| 4 | **Interface & Contract Design** | 10% | Interfaces are minimal, well-named, and have clear contracts (pre/postconditions, error semantics). Types are expressive (no `dict` or `any` where a concrete type belongs). | No defined interfaces. Methods accept/return raw dicts or `any`. No contracts. Callers must read implementation to understand behavior. |
+| 5 | **Data Flow Clarity** | 8% | Sequence diagrams or flow descriptions for critical paths. Clear who calls whom, what data is passed, where transformations happen. I/O boundaries are visible. | No data flow documentation. Unclear how a request traverses the system. Hidden side effects. |
+| 6 | **Error Handling Rigor** | 10% | Error taxonomy defined. Each category has clear handling rules (retry, fail, escalate). Partial failure is addressed. Errors carry context (correlation IDs, original cause). No broad `catch Exception`. | No error strategy. Bare `try/except` everywhere. Partial failure not considered. Errors swallowed silently. |
+| 7 | **Testability** | 12% | Architecture enables the testing pyramid. 70%+ of logic testable without I/O. All external dependencies behind injectable interfaces. Example test cases provided for complex logic. Time/randomness injected. | Untestable: business logic intertwined with I/O. Global state. No interfaces for dependencies. Testing strategy is "we'll add tests later." |
+| 8 | **State Management & Lifecycle** | 6% | Stateful components identified. State transitions are explicit and enforced. Persistence mapping is defined. No hidden mutable state. | State management is ad hoc. Raw status strings. No lifecycle definition. Hidden global mutable state. |
+| 9 | **Concurrency & Safety** | 6% | Shared mutable state identified and protected (or eliminated). Concurrency model is explicit. Race conditions and deadlocks are addressed. Back-pressure strategy exists. (If single-threaded, stated and justified.) | Concurrency not mentioned in a concurrent system. Shared mutable state with no protection. Race conditions likely. |
+| 10 | **Cross-Cutting Concerns** | 6% | Logging, metrics, validation, and config are addressed with concrete strategies. Structured logging. Config validated at startup. Sensitive data not logged. | No mention of logging, observability, or config management. Or mentioned with "we'll use a logger." |
+| 11 | **Design Decision Justification** | 5% | Every major choice includes alternatives considered, rationale, and acknowledged trade-offs. Decisions are grounded in the specific constraints, not generic best practices. | Decisions presented as obvious. No alternatives considered. Rationale is "it's the best practice." |
+| 12 | **Right-Sizing & Simplicity** | 5% | Complexity is proportional to the problem. Abstractions exist for demonstrated needs, not hypothetical ones. YAGNI is applied. A simpler approach was considered and either adopted or ruled out with justification. | Over-engineered (8-layer abstraction for CRUD) or under-designed (no structure for complex logic). Premature abstraction everywhere. |
+
+### Scoring Instructions for the Evaluator LLM
+
+```
+For each dimension:
+1. Read the relevant section(s) of the design.
+2. Compare against the "What 5 Looks Like" and "What 1 Looks Like" anchors.
+3. Assign an integer score from 1-5.
+4. Write 2-3 sentences justifying the score with specific references to the design.
+5. If the section is missing entirely, score it 1 and note the absence.
+
+After scoring all dimensions:
+- Compute the weighted total: sum(score_i × weight_i) to get a score out of 5.0.
+- Map to a grade:
+    4.5 - 5.0  → A  (Ready for implementation, minor polish needed)
+    3.5 - 4.4  → B  (Solid design, notable gaps to fill before coding)
+    2.5 - 3.4  → C  (Reasonable direction, significant rework needed)
+    1.5 - 2.4  → D  (Incomplete, fundamental issues)
+    1.0 - 1.4  → F  (Not a usable design)
+
+Additionally, flag any **Critical Blockers** — issues that would cause implementation to fail or 
+produce a fundamentally broken system, regardless of the overall score. Examples:
+- Circular dependencies between core modules
+- No error handling for operations involving money or data loss
+- Business invariants not enforced anywhere
+- Untestable architecture with no path to fix it
+
+Finally, provide:
+- **Top 3 Strengths**: What this design does best.
+- **Top 3 Weaknesses**: The most critical gaps or risks.
+- **Actionable Improvements**: For each weakness, suggest a specific, concrete fix.
+```
+
+### Output Format for the Evaluator
+
+```markdown
+## Application Design Evaluation: {{APP_NAME}}
+
+### Critical Blockers
+- [List any blockers, or "None identified"]
+
+### Dimension Scores
+
+| # | Dimension | Score | Justification |
+|---|-----------|-------|---------------|
+| 1 | Requirements & Scope Clarity | X/5 | ... |
+| 2 | Domain Model Quality | X/5 | ... |
+| 3 | Module Structure & Dependency Direction | X/5 | ... |
+| 4 | Interface & Contract Design | X/5 | ... |
+| 5 | Data Flow Clarity | X/5 | ... |
+| 6 | Error Handling Rigor | X/5 | ... |
+| 7 | Testability | X/5 | ... |
+| 8 | State Management & Lifecycle | X/5 | ... |
+| 9 | Concurrency & Safety | X/5 | ... |
+| 10 | Cross-Cutting Concerns | X/5 | ... |
+| 11 | Design Decision Justification | X/5 | ... |
+| 12 | Right-Sizing & Simplicity | X/5 | ... |
+
+### Overall Score: X.X / 5.0 — Grade: X
+
+### Top 3 Strengths
+1. ...
+2. ...
+3. ...
+
+### Top 3 Weaknesses
+1. ...
+2. ...
+3. ...
+
+### Actionable Improvements
+1. [For Weakness 1]: ...
+2. [For Weakness 2]: ...
+3. [For Weakness 3]: ...
+
+### Implementation Readiness Checklist
+- [ ] Can a developer start coding Module X today without further design questions?
+- [ ] Are all external integration contracts defined (request/response shapes, auth, error codes)?
+- [ ] Is the testing strategy concrete enough to write the first test file?
+- [ ] Are the configuration values and environment variables documented?
+```
+
+---
+---
+
+## SECTION 3: ITERATIVE REFINEMENT LOOP (optional)
+
+Feed the evaluator's output back to the design LLM with this prompt:
+
+```
+Here is the evaluation of your application design:
+
+{{PASTE EVALUATOR OUTPUT}}
+
+Please revise your design to address the identified weaknesses and any Critical Blockers.
+For each change you make, reference which weakness, blocker, or score you are improving.
+Do not reduce quality in areas that scored well.
+Prioritize fixing Critical Blockers first, then the lowest-scoring dimensions.
+```
+
+Repeat until the evaluator scores ≥ 4.0 with zero Critical Blockers, or you've completed 3 iterations (whichever comes first).
+
+---
+---
+
+## APPENDIX: System Design vs. Application Design — When to Use Which
+
+| Concern | System Design Template | Application Design Template |
+|---|---|---|
+| Scope | Multiple services, infrastructure, networking | Single service / module / library internals |
+| Key questions | Which databases? How do services communicate? How to scale? | How are classes structured? Where do invariants live? How is it tested? |
+| Diagram type | Architecture diagrams, network topology | Class diagrams, sequence diagrams, module dependency graphs |
+| Failure focus | Network partitions, service outages, data replication lag | Null pointers, invalid state, partial failures in business logic |
+| Typical deliverable | Infrastructure diagram + capacity plan | Module structure + interface contracts + test plan |
+| Use together? | **Yes.** System design defines the *boxes*. Application design defines *what's inside each box.* |

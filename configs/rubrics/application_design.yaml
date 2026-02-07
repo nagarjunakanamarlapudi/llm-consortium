@@ -5,8 +5,8 @@ rubric:
 
   dimensions:
     - id: "domain_model"
-      name: "Domain Model"
-      weight: 1.0
+      name: "Domain Model Quality"
+      weight: 1.4
       description: "Quality of entity modeling, relationships, and domain logic encapsulation."
       anchors:
         "1": "No domain model; logic scattered without structure."
@@ -16,8 +16,8 @@ rubric:
         "5": "Rich domain model with bounded contexts, event-driven integration, and ubiquitous language."
 
     - id: "module_structure"
-      name: "Module Structure"
-      weight: 1.0
+      name: "Module Structure & Dependencies"
+      weight: 1.2
       description: "Organization of code into cohesive, loosely-coupled modules."
       anchors:
         "1": "Monolithic blob; no meaningful structure."
@@ -28,7 +28,7 @@ rubric:
 
     - id: "testability"
       name: "Testability"
-      weight: 0.8
+      weight: 1.2
       description: "How easy the design is to test at unit, integration, and end-to-end levels."
       anchors:
         "1": "Untestable design; tight coupling to external systems."
@@ -39,7 +39,7 @@ rubric:
 
     - id: "error_handling"
       name: "Error Handling"
-      weight: 0.8
+      weight: 1.0
       description: "Error propagation, user feedback, recovery strategies, and edge cases."
       anchors:
         "1": "No error handling; crashes on unexpected input."
@@ -49,7 +49,7 @@ rubric:
         "5": "Sophisticated error handling with retry policies, circuit breakers, graceful degradation, and telemetry."
 
     - id: "interface_design"
-      name: "Interface Design"
+      name: "Interface & Contract Design"
       weight: 1.0
       description: "Quality of public APIs, contracts, and abstraction boundaries."
       anchors:
@@ -59,20 +59,42 @@ rubric:
         "4": "Clean interfaces with consistent patterns, versioning, and documentation."
         "5": "Exemplary interface design with backward compatibility, discoverability, and developer ergonomics."
 
-    - id: "data_architecture"
-      name: "Data Architecture"
-      weight: 1.0
-      description: "Data storage, access patterns, schema design, and caching strategy."
+    - id: "cross_cutting_concerns"
+      name: "Cross-Cutting Concerns"
+      weight: 0.6
+      description: "Handling of concerns that span multiple modules: logging, configuration, authentication, caching."
       anchors:
-        "1": "No data strategy; ad-hoc storage."
-        "2": "Basic schema without access pattern consideration."
-        "3": "Reasonable schema design with some access pattern optimization."
-        "4": "Well-designed data layer with appropriate indexing, caching, and migration strategy."
-        "5": "Sophisticated data architecture with read/write separation, event sourcing, and data lifecycle management."
+        "1": "No cross-cutting strategy; concerns handled ad-hoc in every module."
+        "2": "Some shared utilities but inconsistent usage and scattered configuration."
+        "3": "Identified cross-cutting concerns with basic middleware or decorator patterns."
+        "4": "Well-structured cross-cutting layer with AOP, middleware pipelines, and consistent configuration management."
+        "5": "Elegant cross-cutting architecture with composable middleware, centralized policy enforcement, and zero-boilerplate integration."
+
+    - id: "state_management"
+      name: "State Management"
+      weight: 0.6
+      description: "How application state is organized, mutated, and synchronized across components."
+      anchors:
+        "1": "No state management strategy; global mutable state everywhere."
+        "2": "Basic state handling but unclear ownership and uncontrolled mutations."
+        "3": "Defined state boundaries with reasonable encapsulation; some shared mutable state."
+        "4": "Clear state ownership with immutable patterns, event-driven updates, and predictable state transitions."
+        "5": "Sophisticated state architecture with CQRS, event sourcing, or state machines; full auditability and replay capability."
+
+    - id: "concurrency_safety"
+      name: "Concurrency Safety"
+      weight: 0.6
+      description: "How the design handles concurrent access, race conditions, and thread safety."
+      anchors:
+        "1": "No concurrency consideration; race conditions inevitable."
+        "2": "Acknowledges concurrency but relies on coarse-grained locks or hope."
+        "3": "Basic thread safety with standard synchronization; some potential for deadlocks."
+        "4": "Well-designed concurrency with fine-grained locking, lock-free structures, or actor models; deadlock prevention."
+        "5": "Provably safe concurrency design with formal reasoning about ordering, linearizability, and progress guarantees."
 
     - id: "security_design"
       name: "Security Design"
-      weight: 1.0
+      weight: 0.6
       description: "Authentication, authorization, input validation, and data protection."
       anchors:
         "1": "No security measures."
@@ -81,20 +103,9 @@ rubric:
         "4": "Comprehensive security with RBAC, CSRF protection, and secure data handling."
         "5": "Defense-in-depth with security headers, CSP, audit logging, and vulnerability scanning."
 
-    - id: "scalability_strategy"
-      name: "Scalability Strategy"
-      weight: 0.8
-      description: "How the design accommodates growth in users, features, and data."
-      anchors:
-        "1": "No scalability consideration."
-        "2": "Acknowledges scaling needs but no strategy."
-        "3": "Basic scaling with standard patterns (caching, async processing)."
-        "4": "Multi-tier scaling with horizontal strategies and performance budgets."
-        "5": "Comprehensive scaling with load testing strategy, auto-scaling, and graceful degradation."
-
     - id: "trade_off_awareness"
       name: "Trade-off Awareness"
-      weight: 1.2
+      weight: 0.6
       description: "Explicit discussion of design trade-offs and alternatives considered."
       anchors:
         "1": "No trade-offs discussed."
@@ -105,7 +116,7 @@ rubric:
 
     - id: "requirement_coverage"
       name: "Requirement Coverage"
-      weight: 1.0
+      weight: 0.8
       description: "How thoroughly the design addresses all stated requirements."
       anchors:
         "1": "Ignores most requirements."
@@ -116,7 +127,7 @@ rubric:
 
     - id: "extensibility"
       name: "Extensibility"
-      weight: 0.8
+      weight: 0.4
       description: "How easily the design accommodates new features and changing requirements."
       anchors:
         "1": "Rigid design; changes require rewrites."

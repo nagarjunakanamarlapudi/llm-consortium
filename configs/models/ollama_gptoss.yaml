@@ -1,7 +1,7 @@
 model:
   id: "gpt-oss-120b"
   provider: "ollama"
-  api_model: "gpt-oss-120b"
+  api_model: "gpt-oss-120b-ctx20k:latest"
 
   ollama:
     host: "${OLLAMA_HOST:-http://localhost:11434}"

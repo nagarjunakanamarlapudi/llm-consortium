@@ -5,8 +5,8 @@ rubric:
 
   dimensions:
     - id: "requirement_coverage"
-      name: "Requirement Coverage"
-      weight: 1.0
+      name: "Requirements Understanding"
+      weight: 0.8
       description: "How thoroughly the design addresses all stated requirements and constraints."
       anchors:
         "1": "Ignores most requirements; major gaps in coverage."
@@ -27,8 +27,8 @@ rubric:
         "5": "Precise multi-dimensional estimation with growth projections and bottleneck identification."
 
     - id: "architecture_clarity"
-      name: "Architecture Clarity"
-      weight: 1.0
+      name: "Architectural Clarity"
+      weight: 1.2
       description: "How clearly the high-level architecture is communicated and how well components are defined."
       anchors:
         "1": "No clear architecture; components undefined or incoherent."
@@ -71,8 +71,8 @@ rubric:
         "5": "Sophisticated scaling with auto-scaling policies, capacity planning, and graceful degradation."
 
     - id: "reliability_design"
-      name: "Reliability Design"
-      weight: 1.0
+      name: "Reliability & Fault Tolerance"
+      weight: 1.2
       description: "Fault tolerance, redundancy, disaster recovery, and availability guarantees."
       anchors:
         "1": "No fault tolerance; single points of failure everywhere."
@@ -82,8 +82,8 @@ rubric:
         "5": "Comprehensive reliability with chaos engineering readiness, RTO/RPO targets, and blast radius containment."
 
     - id: "security_design"
-      name: "Security Design"
-      weight: 1.0
+      name: "Security Posture"
+      weight: 0.8
       description: "Authentication, authorization, encryption, and security threat mitigation."
       anchors:
         "1": "No security measures; open endpoints."
@@ -92,20 +92,20 @@ rubric:
         "4": "Comprehensive security with RBAC, audit logging, and threat modeling."
         "5": "Production-grade security with zero-trust, secrets management, compliance, and incident response."
 
-    - id: "error_handling"
-      name: "Error Handling"
-      weight: 0.8
-      description: "How the design handles failures, retries, timeouts, and degraded states."
+    - id: "right_sizing"
+      name: "Right-Sizing / Simplicity"
+      weight: 0.5
+      description: "Whether the design complexity is proportional to the problem, avoiding unnecessary abstractions."
       anchors:
-        "1": "No error handling strategy."
-        "2": "Generic error handling; no retry logic."
-        "3": "Basic retry with backoff; timeout handling for critical paths."
-        "4": "Comprehensive error taxonomy with circuit breakers, dead letter queues, and alerting."
-        "5": "Sophisticated error handling with graceful degradation, partial failure modes, and self-healing."
+        "1": "Massively over-engineered or under-engineered; complexity wildly disproportionate to requirements."
+        "2": "Significant over-engineering with unnecessary abstractions, or under-engineering missing critical needs."
+        "3": "Mostly appropriate complexity; some unnecessary layers or missing simplifications."
+        "4": "Complexity proportional to problem; minimal unnecessary abstractions; clear justification for each component."
+        "5": "Perfectly right-sized with elegant simplicity; every component earns its complexity; evolutionary path clear."
 
     - id: "trade_off_awareness"
-      name: "Trade-off Awareness"
-      weight: 1.2
+      name: "Trade-off Honesty"
+      weight: 0.7
       description: "Explicit acknowledgment and justification of design trade-offs (CAP, cost, complexity)."
       anchors:
         "1": "No trade-offs discussed; claims all properties simultaneously."
@@ -116,7 +116,7 @@ rubric:
 
     - id: "operability"
       name: "Operability"
-      weight: 0.8
+      weight: 1.0
       description: "Monitoring, observability, deployment strategy, and operational readiness."
       anchors:
         "1": "No operational considerations."

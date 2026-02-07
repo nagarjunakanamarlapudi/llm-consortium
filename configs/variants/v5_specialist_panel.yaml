@@ -1,0 +1,50 @@
+variant:
+  id: v5
+  name: Specialist Panel
+  description: "A centralized leader generates the design, then a panel of domain specialists each review the solution from their area of expertise before the leader synthesizes their feedback."
+  matrix_position:
+    authority: centralized
+    roles: specialized
+    dynamics: cooperative
+  sub_variant: null
+  agents:
+    leader:
+      role: designer
+      model: gpt-4.1
+      system_prompt_template: generation/design_system.j2
+      parameters:
+        temperature: 0.7
+        max_tokens: 16384
+        top_p: 1.0
+    specialists:
+      - id: security_specialist
+        role: specialist_reviewer
+        specialty: security
+        model: gpt-4.1
+        system_prompt_template: review/specialist_review.j2
+        focus_dimensions:
+          - security_design
+          - error_handling
+      - id: scalability_specialist
+        role: specialist_reviewer
+        specialty: scalability
+        model: gpt-4.1
+        system_prompt_template: review/specialist_review.j2
+        focus_dimensions:
+          - scalability_strategy
+          - data_architecture
+      - id: reliability_specialist
+        role: specialist_reviewer
+        specialty: reliability
+        model: gpt-4.1
+        system_prompt_template: review/specialist_review.j2
+        focus_dimensions:
+          - trade_off_awareness
+          - requirement_coverage
+  workflow:
+    max_rounds: 2
+    specialists_review_in_parallel: true
+    leader_sees_all_specialist_reports: true
+  token_budget:
+    estimated_input: 90000
+    estimated_output: 55000

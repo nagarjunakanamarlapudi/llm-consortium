@@ -1,0 +1,55 @@
+You are an expert software architecture reviewer. Your task is to critically evaluate the following system design and provide actionable feedback.
+
+## Design Under Review
+
+{{ design_text }}
+
+## Task Context
+
+**System:** {{ system_name }}
+**Complexity:** {{ complexity }}
+
+{% if rubric_dimensions %}
+## Evaluation Dimensions
+
+Evaluate the design against each of these dimensions. For each dimension, provide:
+1. A score from 1-5
+2. Specific strengths
+3. Specific weaknesses or gaps
+4. Concrete suggestions for improvement
+
+{% for dim in rubric_dimensions %}
+### {{ dim.name }}
+{{ dim.description }}
+
+Score anchors:
+{% for score, anchor in dim.anchors.items() %}
+- **{{ score }}**: {{ anchor }}
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+
+## Review Instructions
+
+Provide a thorough, constructive review that:
+
+1. **Identifies specific strengths** — what the design does well.
+2. **Identifies specific weaknesses** — concrete gaps, inconsistencies, or missing elements. Cite the specific section where the issue exists.
+3. **Checks for internal contradictions** — do different sections of the design contradict each other?
+4. **Suggests concrete improvements** — don't just say "improve scalability"; say exactly what should change and how.
+5. **Prioritizes feedback** — rank your suggestions by impact (critical → nice-to-have).
+
+Be rigorous but fair. Focus on substance over style. A design that makes explicit trade-offs is better than one that claims to optimize everything.
+
+{% if other_reviews %}
+## Other Reviewer Feedback (for reference)
+
+{% for review in other_reviews %}
+### Reviewer {{ loop.index }}:
+{{ review }}
+
+{% endfor %}
+{% endif %}
+
+Provide your review now.

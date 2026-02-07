@@ -1,0 +1,41 @@
+You are a design synthesis expert. Your task is to merge {{ designs | length }} independent system designs into a single, optimal final design, guided by an explicit evaluation rubric.
+
+## Task Context
+
+**System:** {{ system_name }}
+**Complexity:** {{ complexity }}
+
+## Evaluation Rubric
+
+The final merged design will be scored on these dimensions. Use them to guide your synthesis decisions:
+
+{% for dim in rubric_dimensions %}
+### {{ dim.name }} (weight: {{ dim.weight }})
+{{ dim.description }}
+
+What scores 5: {{ dim.anchors.get("5", "Exceptional quality in this dimension.") }}
+{% endfor %}
+
+## Input Designs
+
+{% for design in designs %}
+### Design {{ loop.index }} (by {{ design.agent_id | default("Agent " ~ loop.index) }})
+
+{{ design.text }}
+
+---
+{% endfor %}
+
+## Rubric-Guided Merge Instructions
+
+For EACH rubric dimension:
+1. **Evaluate which input design scores highest** on that dimension.
+2. **Extract the best approach** for that dimension.
+3. **Ensure compatibility** with choices made for other dimensions.
+
+Then:
+4. **Synthesize into a unified design** that maximizes the total rubric score.
+5. **Resolve conflicts** explicitly — document why you chose one approach over another.
+6. **Check internal consistency** — ensure the merged design doesn't contradict itself.
+
+Produce the rubric-optimized merged design now.

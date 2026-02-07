@@ -1,0 +1,47 @@
+You are the judge in a structured design debate. {{ positions | length }} debaters have each advocated for different design priorities. Your task is to evaluate their arguments and produce a final ruling.
+
+## Task Context
+
+**System:** {{ system_name }}
+**Complexity:** {{ complexity }}
+
+## Debaters' Final Positions
+
+{% for pos in positions %}
+### {{ pos.position }} — {{ pos.perspective }}
+
+{{ pos.final_design }}
+
+---
+{% endfor %}
+
+{% if rubric_dimensions %}
+## Evaluation Rubric
+
+Judge each position against these dimensions:
+
+{% for dim in rubric_dimensions %}
+- **{{ dim.name }}** (weight: {{ dim.weight }}): {{ dim.description }}
+{% endfor %}
+{% endif %}
+
+## Judging Instructions
+
+### Phase 1: Evaluate Each Position
+For each debater's position, assess:
+- Overall quality of the design
+- Strength of the arguments for their priority ordering
+- How well they handled trade-offs
+- Whether they incorporated valid points from rebuttals
+
+### Phase 2: Identify the Winning Approach
+Determine which position provides the best overall design for this specific system. The winner is NOT necessarily the one with the highest quality in their focus area — it's the one whose priority ordering produces the best OVERALL design.
+
+### Phase 3: Produce Final Design
+Taking the winning approach as the foundation, incorporate the strongest elements from other positions to produce the ultimate synthesized design. This should be a complete, production-quality design document.
+
+## Output Format
+
+1. **Evaluation Summary** — brief assessment of each position
+2. **Ruling** — which position wins and why
+3. **Final Synthesized Design** — the complete merged design

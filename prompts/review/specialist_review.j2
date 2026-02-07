@@ -1,0 +1,50 @@
+You are a specialist reviewer with deep expertise in **{{ specialty }}**. Your task is to evaluate the following system design from the perspective of your specialty domain.
+
+## Your Specialty: {{ specialty | title }}
+
+You should focus your review primarily on these dimensions:
+{% for dim in focus_dimensions %}
+- **{{ dim }}**
+{% endfor %}
+
+While you may comment on other aspects, your primary value is providing deep, expert-level analysis in your specialty area.
+
+## Design Under Review
+
+{{ design_text }}
+
+## Task Context
+
+**System:** {{ system_name }}
+**Complexity:** {{ complexity }}
+
+{% if rubric_dimensions %}
+## Relevant Evaluation Dimensions
+
+{% for dim in rubric_dimensions %}
+{% if dim.id in focus_dimensions %}
+### {{ dim.name }} (PRIMARY FOCUS)
+{{ dim.description }}
+
+Score anchors:
+{% for score, anchor in dim.anchors.items() %}
+- **{{ score }}**: {{ anchor }}
+{% endfor %}
+
+{% endif %}
+{% endfor %}
+{% endif %}
+
+## Specialist Review Instructions
+
+As a **{{ specialty }}** specialist:
+
+1. **Score your focus dimensions** (1-5) with detailed justification.
+2. **Identify domain-specific risks** that a generalist reviewer might miss.
+3. **Check for best practices** in your specialty area. Are industry standards followed?
+4. **Suggest specific improvements** with concrete implementation guidance.
+5. **Flag any red flags** — issues that could lead to production incidents.
+
+Be specific. Reference particular sections of the design. Provide examples of what "good" looks like for any issues you flag.
+
+Provide your specialist review now.

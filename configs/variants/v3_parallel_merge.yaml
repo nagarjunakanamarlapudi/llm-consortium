@@ -1,0 +1,40 @@
+variant:
+  id: v3
+  name: Parallel Leaders + Merge
+  description: "Multiple leaders independently generate designs from diverse perspectives, then a merger agent synthesizes them into a unified solution using rubric-guided merging."
+  matrix_position:
+    authority: decentralized
+    roles: homogeneous
+    dynamics: cooperative
+  sub_variant: v3b
+  agents:
+    parallel_leaders:
+      role: designer
+      model: gpt-4.1
+      system_prompt_template: generation/design_system.j2
+      parameters:
+        temperature: 0.9
+        max_tokens: 16384
+        top_p: 1.0
+      count: 3
+      diversity:
+        enabled: true
+        perspective_prompts:
+          - scalability
+          - simplicity
+          - resilience
+    merger:
+      role: merger
+      model: gpt-4.1
+      system_prompt_template: synthesis/merge_rubric_guided.j2
+      parameters:
+        temperature: 0.3
+        max_tokens: 16384
+        top_p: 1.0
+  workflow:
+    max_rounds: 1
+    merge_strategy: rubric_guided
+    post_merge_review: false
+  token_budget:
+    estimated_input: 120000
+    estimated_output: 80000

@@ -1,0 +1,126 @@
+rubric:
+  id: "system_design"
+  name: "System Design Evaluation Rubric"
+  description: "Rubric for evaluating distributed system and infrastructure design quality."
+
+  dimensions:
+    - id: "requirement_coverage"
+      name: "Requirement Coverage"
+      weight: 1.0
+      description: "How thoroughly the design addresses all stated requirements and constraints."
+      anchors:
+        "1": "Ignores most requirements; major gaps in coverage."
+        "2": "Addresses some requirements but misses several critical ones."
+        "3": "Covers core requirements; minor gaps in edge cases or non-functional requirements."
+        "4": "Addresses all stated requirements with reasonable completeness."
+        "5": "Comprehensive coverage of all requirements with proactive identification of implicit needs."
+
+    - id: "capacity_estimation"
+      name: "Capacity Estimation"
+      weight: 0.8
+      description: "Quality of back-of-envelope calculations for storage, bandwidth, and compute."
+      anchors:
+        "1": "No capacity estimation or wildly incorrect numbers."
+        "2": "Partial estimation; missing key dimensions or off by orders of magnitude."
+        "3": "Reasonable estimates for primary dimensions; some gaps."
+        "4": "Thorough estimation across storage, bandwidth, compute with justified assumptions."
+        "5": "Precise multi-dimensional estimation with growth projections and bottleneck identification."
+
+    - id: "architecture_clarity"
+      name: "Architecture Clarity"
+      weight: 1.0
+      description: "How clearly the high-level architecture is communicated and how well components are defined."
+      anchors:
+        "1": "No clear architecture; components undefined or incoherent."
+        "2": "Vague component descriptions; unclear interactions."
+        "3": "Identifiable components with basic interaction descriptions."
+        "4": "Well-defined components, clear data flow, explicit API contracts."
+        "5": "Crystal-clear architecture with precise component boundaries, protocols, and failure modes."
+
+    - id: "data_architecture"
+      name: "Data Architecture"
+      weight: 1.0
+      description: "Quality of data model design, storage technology choices, and consistency model."
+      anchors:
+        "1": "No data model; inappropriate storage choice."
+        "2": "Basic schema; storage choice without justification."
+        "3": "Reasonable data model; storage choice with some rationale."
+        "4": "Well-designed schema, justified storage selection, clear consistency model."
+        "5": "Sophisticated data architecture with partitioning strategy, caching layers, and migration plan."
+
+    - id: "api_design"
+      name: "API Design"
+      weight: 0.8
+      description: "Quality of interface definitions, endpoint design, and contract specification."
+      anchors:
+        "1": "No API defined or completely ad-hoc."
+        "2": "Basic endpoints listed without contracts or error handling."
+        "3": "Core endpoints with request/response schemas; some gaps."
+        "4": "Comprehensive API with versioning, pagination, error codes, and auth."
+        "5": "Production-grade API design with rate limiting, idempotency, backward compatibility, and documentation."
+
+    - id: "scalability_strategy"
+      name: "Scalability Strategy"
+      weight: 1.2
+      description: "How well the design handles growth in users, data, and traffic."
+      anchors:
+        "1": "No scalability consideration; single-server design."
+        "2": "Mentions scaling but no concrete strategy."
+        "3": "Basic horizontal scaling; standard patterns like load balancing."
+        "4": "Multi-dimensional scaling strategy with partitioning, caching, and async processing."
+        "5": "Sophisticated scaling with auto-scaling policies, capacity planning, and graceful degradation."
+
+    - id: "reliability_design"
+      name: "Reliability Design"
+      weight: 1.0
+      description: "Fault tolerance, redundancy, disaster recovery, and availability guarantees."
+      anchors:
+        "1": "No fault tolerance; single points of failure everywhere."
+        "2": "Acknowledges need for reliability but no concrete mechanisms."
+        "3": "Basic redundancy and replication; standard failover."
+        "4": "Multi-region design with circuit breakers, health checks, and recovery procedures."
+        "5": "Comprehensive reliability with chaos engineering readiness, RTO/RPO targets, and blast radius containment."
+
+    - id: "security_design"
+      name: "Security Design"
+      weight: 1.0
+      description: "Authentication, authorization, encryption, and security threat mitigation."
+      anchors:
+        "1": "No security measures; open endpoints."
+        "2": "Basic auth mentioned but no defense in depth."
+        "3": "Standard auth/authz with encryption at rest and in transit."
+        "4": "Comprehensive security with RBAC, audit logging, and threat modeling."
+        "5": "Production-grade security with zero-trust, secrets management, compliance, and incident response."
+
+    - id: "error_handling"
+      name: "Error Handling"
+      weight: 0.8
+      description: "How the design handles failures, retries, timeouts, and degraded states."
+      anchors:
+        "1": "No error handling strategy."
+        "2": "Generic error handling; no retry logic."
+        "3": "Basic retry with backoff; timeout handling for critical paths."
+        "4": "Comprehensive error taxonomy with circuit breakers, dead letter queues, and alerting."
+        "5": "Sophisticated error handling with graceful degradation, partial failure modes, and self-healing."
+
+    - id: "trade_off_awareness"
+      name: "Trade-off Awareness"
+      weight: 1.2
+      description: "Explicit acknowledgment and justification of design trade-offs (CAP, cost, complexity)."
+      anchors:
+        "1": "No trade-offs discussed; claims all properties simultaneously."
+        "2": "Mentions trade-offs in passing without analysis."
+        "3": "Identifies key trade-offs with basic rationale."
+        "4": "Explicit trade-off analysis with alternatives considered and justified choices."
+        "5": "Deep trade-off reasoning with quantified impact, sensitivity analysis, and reversibility assessment."
+
+    - id: "operability"
+      name: "Operability"
+      weight: 0.8
+      description: "Monitoring, observability, deployment strategy, and operational readiness."
+      anchors:
+        "1": "No operational considerations."
+        "2": "Basic logging mentioned; no monitoring strategy."
+        "3": "Standard monitoring with metrics, logs, and basic alerting."
+        "4": "Comprehensive observability with distributed tracing, SLOs, runbooks, and CI/CD."
+        "5": "Production-grade operations with canary deploys, feature flags, on-call playbooks, and cost monitoring."

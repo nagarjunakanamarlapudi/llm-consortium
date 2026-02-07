@@ -1,0 +1,47 @@
+task:
+  id: "t3"
+  name: "E-Commerce Platform"
+  complexity: "medium"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "E-Commerce Platform"
+    problem_statement: |
+      Design a full-featured e-commerce platform capable of supporting a large product
+      catalog, real-time inventory management, shopping cart functionality, secure
+      checkout with multiple payment providers, and comprehensive order lifecycle
+      management. The platform must handle traffic spikes during flash sales and
+      seasonal events without degradation. The product catalog should support faceted
+      search with filtering by attributes such as price range, category, brand, ratings,
+      and availability, with relevance-ranked results. Inventory must be tracked in real
+      time across multiple warehouses with strong consistency guarantees to prevent
+      overselling. The checkout flow must integrate with multiple payment gateways
+      including credit cards, digital wallets, and buy-now-pay-later services while
+      maintaining PCI-DSS compliance. The platform must support multi-currency pricing
+      with real-time exchange rate updates, tax calculation for multiple jurisdictions,
+      and configurable shipping providers. A recommendation engine should provide
+      personalized product suggestions based on browsing history, purchase patterns, and
+      collaborative filtering. The system must also support seller onboarding for a
+      marketplace model, with seller dashboards, commission tracking, and dispute
+      resolution workflows.
+    hard_constraints:
+      - "Support at least 50,000 concurrent users with graceful degradation under peak load"
+      - "Product page load time must be under 200ms at the 95th percentile"
+      - "Full PCI-DSS Level 1 compliance for all payment processing flows"
+      - "Multi-currency support with real-time exchange rate conversion across 30+ currencies"
+      - "Inventory consistency must prevent overselling even under concurrent purchases"
+      - "Support a product catalog of at least 10 million SKUs with sub-second search"
+    use_cases:
+      - "Browse and search the product catalog with faceted filtering and relevance ranking"
+      - "Add items to a persistent shopping cart with real-time price and availability updates"
+      - "Complete a secure multi-step checkout with address validation, tax calculation, and payment"
+      - "Track order status from placement through fulfillment, shipping, and delivery"
+      - "Receive personalized product recommendations based on browsing and purchase history"
+      - "Manage seller storefronts with inventory uploads, pricing, and order fulfillment"
+    complexity_drivers:
+      - "Distributed inventory consistency across multiple warehouses under concurrent writes"
+      - "Payment gateway integration with idempotent transactions and failure recovery"
+      - "Real-time recommendation engine combining collaborative and content-based filtering"
+      - "Flash sale traffic spikes requiring elastic scaling and queue-based rate smoothing"
+      - "Multi-tenant marketplace architecture with seller isolation and commission settlement"

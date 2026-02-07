@@ -1,0 +1,23 @@
+model:
+  id: "opus-4"
+  provider: "anthropic"
+  api_model: "claude-opus-4-20250514"
+
+  pricing:
+    input: 15.00
+    output: 75.00
+    batch_discount: 0.50
+    cached_input: 1.50
+
+  parameters:
+    temperature: 0.7
+    max_tokens: 16384
+    top_p: 1.0
+
+  context_window: 200000
+  supports_batch: true
+  supports_caching: true
+
+  rate_limits:
+    requests_per_minute: 500
+    tokens_per_minute: 200000

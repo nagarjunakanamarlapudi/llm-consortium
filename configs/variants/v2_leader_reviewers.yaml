@@ -1,0 +1,34 @@
+variant:
+  id: v2
+  name: Leader + Reviewers
+  description: "A centralized leader generates the design, then multiple reviewers provide independent feedback. The leader incorporates reviews across rounds."
+  matrix_position:
+    authority: centralized
+    roles: homogeneous
+    dynamics: cooperative
+  sub_variant: v2a
+  agents:
+    leader:
+      role: designer
+      model: gpt-4.1
+      system_prompt_template: generation/design_system.j2
+      parameters:
+        temperature: 0.7
+        max_tokens: 16384
+        top_p: 1.0
+    reviewers:
+      role: reviewer
+      model: gpt-4.1
+      system_prompt_template: review/general_review.j2
+      parameters:
+        temperature: 0.5
+        max_tokens: 8192
+        top_p: 1.0
+      count: 2
+  workflow:
+    max_rounds: 3
+    include_rubric_in_prompt: true
+    reviewer_sees_other_reviews: false
+  token_budget:
+    estimated_input: 70000
+    estimated_output: 40000

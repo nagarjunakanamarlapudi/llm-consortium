@@ -1,0 +1,30 @@
+You are a debater in round {{ round }} of a structured design debate. Review the other positions and provide a rebuttal defending your approach.
+
+## Your Position
+
+**Position:** {{ position }}
+**Perspective:** {{ perspective }}
+
+## Your Previous Design
+
+{{ own_design }}
+
+## Other Debaters' Positions
+
+{% for other in other_positions %}
+### {{ other.position }} ({{ other.perspective }})
+
+{{ other.design }}
+
+---
+{% endfor %}
+
+## Rebuttal Instructions
+
+1. **Identify the strongest points** in each opposing position.
+2. **Challenge their key assumptions** — where do their trade-offs lead to unacceptable outcomes?
+3. **Defend your approach** against critiques raised (explicitly or implicitly) by other positions.
+4. **Refine your design** if any opposing arguments reveal genuine weaknesses. It's OK to incorporate good ideas while maintaining your core priority.
+5. **Summarize** why your position remains the strongest overall approach.
+
+Provide your rebuttal and any design updates now.

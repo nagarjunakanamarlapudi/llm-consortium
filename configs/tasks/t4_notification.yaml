@@ -1,0 +1,46 @@
+task:
+  id: "t4"
+  name: "Multi-Channel Notification Service"
+  complexity: "medium"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "Multi-Channel Notification Service"
+    problem_statement: |
+      Design a scalable multi-channel notification service that delivers messages
+      across push notifications, email, SMS, in-app notifications, and webhooks. The
+      service must act as a centralized notification hub for multiple upstream
+      applications, abstracting away the complexity of individual delivery channels.
+      It must support a flexible template system with variable interpolation,
+      localization for 20+ languages, and channel-specific rendering. Users must be
+      able to configure granular notification preferences, including per-channel
+      opt-in/opt-out, quiet hours, frequency caps, and topic-based subscriptions.
+      The system should handle both transactional notifications requiring immediate
+      delivery and bulk marketing campaigns that must be throttled to avoid
+      overwhelming downstream providers. Delivery status must be tracked end-to-end
+      with support for retries on transient failures, dead-letter queues for
+      persistent failures, and comprehensive delivery analytics. The service must
+      implement intelligent rate limiting per user, per channel, and per provider to
+      respect downstream API limits and prevent user notification fatigue. Priority
+      levels must ensure critical alerts are never delayed by bulk sends.
+    hard_constraints:
+      - "Throughput of at least 1 million notifications per hour across all channels"
+      - "Transactional notification delivery within 30 seconds of trigger event"
+      - "Template system supporting variable interpolation and 20+ language localizations"
+      - "User preference management with per-channel, per-topic granularity"
+      - "End-to-end delivery tracking with retry logic and dead-letter handling"
+      - "Rate limiting per user, per channel, and per downstream provider API"
+    use_cases:
+      - "Send transactional alerts such as order confirmations, password resets, and security notifications"
+      - "Execute marketing campaigns with audience segmentation, A/B testing, and scheduled delivery"
+      - "Allow users to manage notification preferences across channels and topics"
+      - "Track delivery status, open rates, click-through rates, and bounce rates per notification"
+      - "Route notifications through fallback channels when primary delivery fails"
+      - "Provide real-time webhooks for downstream systems to react to notification events"
+    complexity_drivers:
+      - "Multi-channel delivery orchestration with channel-specific formatting and provider failover"
+      - "Intelligent rate limiting across multiple dimensions without starving critical notifications"
+      - "Template rendering at scale with dynamic content, localization, and personalization"
+      - "Priority queue management ensuring transactional messages preempt bulk campaigns"
+      - "Idempotent delivery guarantees to prevent duplicate notifications during retries"

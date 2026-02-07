@@ -1,0 +1,49 @@
+task:
+  id: "t8"
+  name: "ML Training and Inference Platform"
+  complexity: "complex"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "ML Training and Inference Platform"
+    problem_statement: |
+      Design an end-to-end machine learning platform that supports the full ML lifecycle
+      from data preparation and feature engineering through distributed model training,
+      experiment tracking, model registry, and production serving with A/B testing. The
+      platform must orchestrate distributed training jobs across multi-GPU and multi-node
+      clusters, supporting popular frameworks such as PyTorch, TensorFlow, and JAX with
+      efficient GPU resource scheduling that maximizes utilization while ensuring fair
+      sharing across teams. A centralized feature store must provide consistent feature
+      computation for both training and serving, with point-in-time correctness to
+      prevent data leakage and support for both batch and real-time feature pipelines.
+      The experiment tracking system must capture all hyperparameters, metrics, artifacts,
+      code versions, data lineage, and environment configurations to ensure full
+      reproducibility of any historical experiment. The model registry must support
+      versioning, approval workflows, and lineage tracking from training data through
+      deployed model. Production model serving must support low-latency online inference,
+      batch prediction, and streaming inference patterns with automatic scaling based on
+      traffic. A/B testing and canary deployment must enable gradual rollout of new
+      models with statistical significance testing and automatic rollback on metric
+      regression. The platform must include monitoring for model performance degradation,
+      data drift detection, and prediction quality alerts.
+    hard_constraints:
+      - "Support distributed multi-GPU training across clusters of at least 64 GPUs"
+      - "Online inference latency must be under 50ms at the 99th percentile"
+      - "Full model versioning with lineage tracking from training data to production deployment"
+      - "A/B testing framework with statistical significance testing and automated rollback"
+      - "Feature store providing point-in-time correct features for both training and serving"
+      - "Experiment reproducibility with captured hyperparameters, code, data, and environment"
+    use_cases:
+      - "Define and execute distributed model training pipelines with multi-GPU orchestration"
+      - "Track experiments with full reproducibility including hyperparameters, metrics, and artifacts"
+      - "Register, version, and promote models through approval workflows to production"
+      - "Serve models in production with auto-scaling, low-latency inference, and traffic management"
+      - "Engineer and manage features in a centralized store with batch and real-time pipelines"
+      - "Monitor deployed models for prediction quality degradation and data drift"
+    complexity_drivers:
+      - "GPU resource scheduling with bin-packing, preemption, and fair-share policies across teams"
+      - "Model serving at scale with heterogeneous hardware, dynamic batching, and model optimization"
+      - "Experiment reproducibility requiring deterministic capture of code, data, and environment state"
+      - "Feature store consistency between training and serving with point-in-time correctness guarantees"
+      - "Automated model deployment pipelines with canary analysis and statistically rigorous A/B testing"

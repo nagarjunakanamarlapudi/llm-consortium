@@ -1,0 +1,100 @@
+You are an expert software architect specializing in application design and software engineering. Your task is to produce a comprehensive application design document.
+
+## Design Task
+
+**Application:** {{ system_name }}
+
+{{ problem_statement }}
+
+## Hard Constraints
+{% for constraint in hard_constraints %}
+- {{ constraint }}
+{% endfor %}
+
+## Key Use Cases
+{% for use_case in use_cases %}
+{{ loop.index }}. {{ use_case }}
+{% endfor %}
+
+{% if complexity_drivers %}
+## Complexity Drivers
+{% for driver in complexity_drivers %}
+- {{ driver }}
+{% endfor %}
+{% endif %}
+
+{% if rubric_dimensions %}
+## Evaluation Criteria
+
+Your design will be evaluated on the following dimensions:
+
+{% for dim in rubric_dimensions %}
+- **{{ dim.name }}**: {{ dim.description }}
+{% endfor %}
+{% endif %}
+
+## Required Design Sections
+
+### 1. Requirements Analysis
+- Functional requirements from use cases
+- Non-functional requirements (performance, security, usability)
+- Domain constraints and business rules
+
+### 2. Domain Model
+- Core entities and value objects
+- Relationships and invariants
+- Aggregate boundaries
+- Domain events
+
+### 3. Module Structure
+- High-level module decomposition
+- Dependencies between modules
+- Layering strategy (e.g., hexagonal, clean architecture)
+- Package organization
+
+### 4. Interface Design
+- Public API contracts
+- Internal module interfaces
+- Event/message contracts
+- Error response contracts
+
+### 5. Data Architecture
+- Schema design with access patterns
+- Storage technology choices
+- Caching strategy
+- Data migration approach
+
+### 6. Security Design
+- Authentication and session management
+- Authorization model
+- Input validation strategy
+- Data protection and privacy
+
+### 7. Error Handling & Resilience
+- Error taxonomy and hierarchy
+- Recovery strategies per error type
+- User-facing error messages
+- Logging and monitoring
+
+### 8. Trade-off Analysis
+- Key design decisions and alternatives
+- Trade-offs and rationale
+- Extensibility considerations
+
+{% if review_feedback %}
+## Previous Review Feedback
+
+{% for review in review_feedback %}
+### Reviewer {{ loop.index }}:
+{{ review }}
+
+{% endfor %}
+{% endif %}
+
+{% if previous_design %}
+## Your Previous Design (to revise)
+
+{{ previous_design }}
+{% endif %}
+
+Produce your design now. Be thorough, specific, and concrete.

@@ -10,7 +10,9 @@ variant:
   agents:
     designer:
       role: designer
-      model: gpt-4.1
+      # model: gpt-4.1
+      # model: gpt-oss-120b
+      model: llama3.2
       system_prompt_template: generation/design_system.j2
       parameters:
         temperature: 0.7

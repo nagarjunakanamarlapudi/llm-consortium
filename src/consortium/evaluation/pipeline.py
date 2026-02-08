@@ -237,7 +237,6 @@ class EvaluationPipeline:
             parameters={
                 "temperature": self.evaluator_config.parameters.temperature,
                 "max_tokens": self.evaluator_config.parameters.max_tokens,
-                "top_p": 1.0,
             },
             metadata={"step": "evaluation"},
         )

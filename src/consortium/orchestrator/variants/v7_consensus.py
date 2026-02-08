@@ -129,6 +129,7 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             "system_name": task.variables.system_name,
             "complexity": task.complexity,
             "design_type": task.design_type,
+            "round": round_num,
             "rubric_dimensions": (
                 [d.model_dump() for d in rubric_dims] if rubric_dims else None
             ),

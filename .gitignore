@@ -26,9 +26,10 @@ uv.lock
 
 # Data (experiment outputs)
 data/consortium.db
+data/consortium.db-shm
+data/consortium.db-wal
 data/batches/
 data/traces/
-data/exports/
 
 # OS
 .DS_Store

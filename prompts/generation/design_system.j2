@@ -23,7 +23,7 @@ You are a principal-level systems architect with deep expertise in distributed s
 {% endfor %}
 {% endif %}
 
-{% if perspective %}
+{% if perspective is defined and perspective %}
 ## Assigned Perspective
 
 **You are designing with a strong emphasis on: {{ perspective }}.**

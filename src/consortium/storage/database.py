@@ -9,7 +9,13 @@ import structlog
 
 logger = structlog.get_logger()
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+# Migration from v1 to v2: add prompt_text and response_text to traces
+MIGRATION_V2 = """
+ALTER TABLE traces ADD COLUMN prompt_text TEXT;
+ALTER TABLE traces ADD COLUMN response_text TEXT;
+"""
 
 SCHEMA_SQL = """\
 -- Schema version tracking
@@ -134,6 +140,8 @@ CREATE TABLE IF NOT EXISTS traces (
 
     system_prompt_hash TEXT,
     prompt_template TEXT,
+    prompt_text     TEXT,
+    response_text   TEXT,
 
     input_tokens    INTEGER NOT NULL,
     output_tokens   INTEGER NOT NULL,
@@ -202,11 +210,27 @@ class Database:
         return self._conn
 
     def init_schema(self) -> None:
-        """Create all tables and indexes."""
+        """Create all tables, indexes, and run pending migrations."""
         self.conn.executescript(SCHEMA_SQL)
+
+        current = self.get_schema_version() or 0
+
+        # Run migrations
+        if current < 2:
+            try:
+                for stmt in MIGRATION_V2.strip().splitlines():
+                    stmt = stmt.strip()
+                    if stmt:
+                        self.conn.execute(stmt)
+                logger.info("migration_applied", from_version=current, to_version=2)
+            except sqlite3.OperationalError as e:
+                # Column already exists (fresh DB created with v2 schema)
+                if "duplicate column" not in str(e).lower():
+                    raise
+
         # Record schema version
         self.conn.execute(
-            "INSERT OR IGNORE INTO schema_version (version) VALUES (?)",
+            "INSERT OR REPLACE INTO schema_version (version) VALUES (?)",
             (SCHEMA_VERSION,),
         )
         self.conn.commit()

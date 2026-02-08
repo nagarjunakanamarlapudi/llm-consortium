@@ -52,6 +52,7 @@ class DesignerAgent(BaseAgent):
             "hard_constraints": task.variables.hard_constraints,
             "use_cases": task.variables.use_cases,
             "complexity_drivers": task.variables.complexity_drivers,
+            "complexity": task.complexity,
             "design_type": task.design_type,
             "rubric_dimensions": (
                 [d.model_dump() for d in rubric_dimensions]

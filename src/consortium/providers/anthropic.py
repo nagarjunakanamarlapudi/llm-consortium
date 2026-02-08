@@ -89,14 +89,21 @@ class AnthropicProvider(LLMProvider):
         )
 
         start_ns = time.perf_counter_ns()
-        response: Message = await self._client.messages.create(
-            model=self._config.api_model,
-            messages=messages,
-            system=system_blocks,
-            max_tokens=params["max_tokens"],
-            temperature=params["temperature"],
-            top_p=params["top_p"],
-        )
+
+        # Anthropic API does not allow both temperature and top_p simultaneously.
+        # Only include top_p if temperature is not set (or is None).
+        create_kwargs: dict[str, Any] = {
+            "model": self._config.api_model,
+            "messages": messages,
+            "system": system_blocks,
+            "max_tokens": params["max_tokens"],
+        }
+        if params.get("temperature") is not None:
+            create_kwargs["temperature"] = params["temperature"]
+        elif params.get("top_p") is not None:
+            create_kwargs["top_p"] = params["top_p"]
+
+        response: Message = await self._client.messages.create(**create_kwargs)
         latency_ms = (time.perf_counter_ns() - start_ns) / 1_000_000
 
         return self._message_to_response(response, latency_ms=latency_ms)
@@ -126,17 +133,21 @@ class AnthropicProvider(LLMProvider):
             messages = self._build_messages(req)
             system_blocks = self._build_system(req)
             params = self._merge_parameters(req)
+            item_params: dict[str, Any] = {
+                "model": self._config.api_model,
+                "messages": messages,
+                "system": system_blocks,
+                "max_tokens": params["max_tokens"],
+            }
+            if params.get("temperature") is not None:
+                item_params["temperature"] = params["temperature"]
+            elif params.get("top_p") is not None:
+                item_params["top_p"] = params["top_p"]
+
             batch_items.append(
                 {
                     "custom_id": custom_id,
-                    "params": {
-                        "model": self._config.api_model,
-                        "messages": messages,
-                        "system": system_blocks,
-                        "max_tokens": params["max_tokens"],
-                        "temperature": params["temperature"],
-                        "top_p": params["top_p"],
-                    },
+                    "params": item_params,
                 }
             )
 

@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
+from datetime import UTC, datetime
+from typing import Any
 
 from consortium.config.models import TaskConfig
-from consortium.orchestrator.context import DesignArtifact, RunContext
+from consortium.orchestrator.context import (
+    ConversationTurn,
+    DesignArtifact,
+    RunContext,
+)
 from consortium.orchestrator.variants.base import VariantOrchestrator
 
 
@@ -29,17 +36,17 @@ class V8StructuredDebateOrchestrator(VariantOrchestrator):
         while len(perspectives) < len(debaters):
             perspectives.append(f"perspective-{len(perspectives) + 1}")
 
-        # Round 0: position statements
+        # Round 0: position statements — use position_assignment template directly
         self._log.info("round_start", round=0, step="position", count=len(debaters))
         designs = list(await asyncio.gather(*(
-            debater.act(
+            self._position_statement(
+                debater=debaters[i],
                 context=context,
-                round_num=0,
                 task=task,
-                rubric_dimensions=rubric_dims,
+                rubric_dims=rubric_dims,
                 perspective=perspectives[i],
             )
-            for i, debater in enumerate(debaters)
+            for i in range(len(debaters))
         )))
 
         # Rebuttal rounds
@@ -55,6 +62,7 @@ class V8StructuredDebateOrchestrator(VariantOrchestrator):
                     task=task,
                     own_design=designs[i],
                     other_designs=[d for j, d in enumerate(designs) if j != i],
+                    other_perspectives=[p for j, p in enumerate(perspectives) if j != i],
                     rubric_dims=rubric_dims,
                     perspective=perspectives[i],
                     rebuttal_template=rebuttal_template,
@@ -89,6 +97,63 @@ class V8StructuredDebateOrchestrator(VariantOrchestrator):
         self._log.info("complete", design_id=ruling.design_id)
         return ruling
 
+    async def _position_statement(
+        self,
+        *,
+        debater,
+        context: RunContext,
+        task: TaskConfig,
+        rubric_dims,
+        perspective: str,
+    ) -> DesignArtifact:
+        """Generate an initial position statement using position_assignment template."""
+        template_vars: dict[str, Any] = {
+            "system_name": task.variables.system_name,
+            "complexity": task.complexity,
+            "design_type": task.design_type,
+            "position": perspective,
+            "perspective": perspective,
+            "hard_constraints": task.variables.hard_constraints,
+            "use_cases": task.variables.use_cases,
+            "rubric_dimensions": (
+                [d.model_dump() for d in rubric_dims] if rubric_dims else None
+            ),
+        }
+
+        response = await debater._call_llm(
+            template=debater.prompt_template,  # position_assignment.j2
+            template_vars=template_vars,
+            context=context,
+            step="position",
+            round_num=0,
+        )
+
+        design = DesignArtifact(
+            design_id=uuid.uuid4().hex,
+            run_id=context.run_id,
+            round=0,
+            agent_role=debater.role,
+            agent_id=debater.agent_id,
+            full_text=response.content,
+            token_count=response.output_tokens,
+            is_final=False,
+            created_at=datetime.now(UTC),
+        )
+
+        context.designs.append(design)
+        context.conversation_history.append(
+            ConversationTurn(
+                round=0,
+                agent_role=debater.role,
+                agent_id=debater.agent_id,
+                step="position",
+                content=response.content,
+                timestamp=datetime.now(UTC),
+            )
+        )
+
+        return design
+
     async def _rebuttal(
         self,
         *,
@@ -98,46 +163,68 @@ class V8StructuredDebateOrchestrator(VariantOrchestrator):
         task: TaskConfig,
         own_design: DesignArtifact,
         other_designs: list[DesignArtifact],
+        other_perspectives: list[str],
         rubric_dims,
         perspective: str,
         rebuttal_template: str | None,
     ) -> DesignArtifact:
         """Generate a rebuttal: revise own position considering others' arguments."""
-        from consortium.orchestrator.context import ReviewArtifact
-        from datetime import UTC, datetime
-        import uuid
-
-        # Convert other designs to review-like feedback
-        reviews = [
-            ReviewArtifact(
-                review_id=uuid.uuid4().hex,
-                run_id=context.run_id,
-                design_id=d.design_id,
-                round=d.round,
-                agent_role=d.agent_role,
-                agent_id=d.agent_id,
-                review_text=f"[Opposing position from {d.agent_id}]\n\n{d.full_text}",
-                created_at=datetime.now(UTC),
-            )
-            for d in other_designs
-        ]
-
-        # Use rebuttal template if available, otherwise use debater's own template
         template = rebuttal_template or debater.prompt_template
 
-        original_template = debater.prompt_template
-        debater.prompt_template = template
-        try:
-            design = await debater.act(
-                context=context,
-                round_num=round_num,
-                task=task,
-                rubric_dimensions=rubric_dims,
-                previous_design=own_design,
-                reviews=reviews,
-                perspective=perspective,
+        # Build template vars matching rebuttal.j2's expected structure
+        other_positions = [
+            {
+                "position": other_perspectives[i],
+                "perspective": other_perspectives[i],
+                "design": d.full_text,
+            }
+            for i, d in enumerate(other_designs)
+        ]
+
+        template_vars: dict[str, Any] = {
+            "round": round_num,
+            "design_type": task.design_type,
+            "position": perspective,
+            "perspective": perspective,
+            "own_design": own_design.full_text,
+            "other_positions": other_positions,
+            "system_name": task.variables.system_name,
+            "complexity": task.complexity,
+            "rubric_dimensions": (
+                [d.model_dump() for d in rubric_dims] if rubric_dims else None
+            ),
+        }
+
+        response = await debater._call_llm(
+            template=template,
+            template_vars=template_vars,
+            context=context,
+            step="rebuttal",
+            round_num=round_num,
+        )
+
+        design = DesignArtifact(
+            design_id=uuid.uuid4().hex,
+            run_id=context.run_id,
+            round=round_num,
+            agent_role=debater.role,
+            agent_id=debater.agent_id,
+            full_text=response.content,
+            token_count=response.output_tokens,
+            is_final=False,
+            created_at=datetime.now(UTC),
+        )
+
+        context.designs.append(design)
+        context.conversation_history.append(
+            ConversationTurn(
+                round=round_num,
+                agent_role=debater.role,
+                agent_id=debater.agent_id,
+                step="rebuttal",
+                content=response.content,
+                timestamp=datetime.now(UTC),
             )
-        finally:
-            debater.prompt_template = original_template
+        )
 
         return design

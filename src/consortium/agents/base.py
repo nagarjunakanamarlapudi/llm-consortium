@@ -123,6 +123,8 @@ class BaseAgent(abc.ABC):
                 prompt_content.encode()
             ).hexdigest()[:16],
             prompt_template=template,
+            prompt_text=prompt_content,
+            response_text=response.content,
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
             cached_input_tokens=response.cached_input_tokens,

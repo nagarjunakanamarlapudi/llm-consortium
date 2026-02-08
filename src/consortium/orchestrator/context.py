@@ -89,6 +89,8 @@ class LLMCallTrace:
     status: str = "success"  # "success", "retried", "failed"
     error: str | None = None
     retry_count: int = 0
+    prompt_text: str | None = None      # full rendered prompt sent to LLM
+    response_text: str | None = None    # raw LLM response content
 
 
 @dataclass

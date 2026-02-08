@@ -23,11 +23,20 @@ app.add_typer(db_app, name="db", help="Database operations (init, stats, export)
 def main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
     debug: bool = typer.Option(False, "--debug", help="Debug mode"),
+    env_file: str = typer.Option(".env", "--env", help="Path to .env file"),
 ) -> None:
     """LLM Consortium — multi-agent experiment framework."""
     import logging
+    from pathlib import Path
 
     import structlog
+
+    # Load .env file into os.environ
+    env_path = Path(env_file)
+    if env_path.exists():
+        from dotenv import load_dotenv
+
+        load_dotenv(env_path, override=False)
 
     log_level = logging.DEBUG if debug else (logging.INFO if verbose else logging.WARNING)
     structlog.configure(

@@ -10,7 +10,7 @@ variant:
   agents:
     parallel_leaders:
       role: designer
-      model: gpt-4.1
+      model: llama3.2
       system_prompt_template: generation/design_system.j2
       parameters:
         temperature: 0.9
@@ -26,7 +26,7 @@ variant:
           - resilience
     merger:
       role: merger
-      model: gpt-4.1
+      model: llama3.2
       system_prompt_template: synthesis/merge_rubric_guided.j2
       parameters:
         temperature: 0.3

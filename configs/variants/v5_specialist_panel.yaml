@@ -10,7 +10,7 @@ variant:
   agents:
     leader:
       role: designer
-      model: gpt-4.1
+      model: llama3.2
       system_prompt_template: generation/design_system.j2
       parameters:
         temperature: 0.7
@@ -20,7 +20,7 @@ variant:
       - id: security_specialist
         role: specialist_reviewer
         specialty: security
-        model: gpt-4.1
+        model: llama3.2
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - security_design
@@ -28,7 +28,7 @@ variant:
       - id: scalability_specialist
         role: specialist_reviewer
         specialty: scalability
-        model: gpt-4.1
+        model: llama3.2
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - scalability_strategy
@@ -36,7 +36,7 @@ variant:
       - id: reliability_specialist
         role: specialist_reviewer
         specialty: reliability
-        model: gpt-4.1
+        model: llama3.2
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - trade_off_awareness

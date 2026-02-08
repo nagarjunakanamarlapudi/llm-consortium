@@ -38,6 +38,7 @@ def _run_context() -> RunContext:
 
 def _task_config():
     from consortium.config.models import TaskConfig, TaskVariables
+
     return TaskConfig(
         id="task1",
         name="Test Task",
@@ -59,6 +60,32 @@ def _mock_designer_agent(agent_id: str = "designer") -> MagicMock:
     agent.agent_id = agent_id
     agent.role = "designer"
     agent.prompt_template = "generation/design_system.j2"
+
+    # v1 constructs a real ReviewerAgent from designer attrs
+    agent.model_config = MagicMock()
+    agent.model_config.id = "mock-model"
+    agent.model_config.provider = "mock"
+    agent.renderer = MagicMock()
+    agent.renderer.render = MagicMock(return_value="mocked prompt text")
+    agent.parameters = MagicMock()
+    agent.parameters.temperature = 0.7
+    agent.parameters.max_tokens = 8192
+    agent.parameters.top_p = 1.0
+    agent.limits = MagicMock()
+    agent.limits.max_tokens_per_run = 999_999
+    agent.limits.max_cost_per_run_usd = 999.0
+
+    mock_response = MagicMock()
+    mock_response.content = "Mock review feedback"
+    mock_response.model = "mock-model"
+    mock_response.input_tokens = 100
+    mock_response.output_tokens = 50
+    mock_response.cached_input_tokens = 0
+    mock_response.cost_usd = 0.0
+    mock_response.latency_ms = 10.0
+    mock_response.batch_id = None
+    agent.provider = MagicMock()
+    agent.provider.complete = AsyncMock(return_value=mock_response)
 
     call_count = 0
 
@@ -202,7 +229,8 @@ class TestVariantRegistry:
 class TestV1Baseline:
     def test_single_round(self) -> None:
         config = VariantConfig(
-            id="v1", name="Baseline",
+            id="v1",
+            name="Baseline",
             workflow=WorkflowConfig(max_rounds=1),
         )
         designer = _mock_designer_agent()
@@ -217,16 +245,15 @@ class TestV1Baseline:
 
     def test_multi_round_self_refinement(self) -> None:
         config = VariantConfig(
-            id="v1", name="Baseline",
+            id="v1",
+            name="Baseline",
             workflow=WorkflowConfig(max_rounds=3),
         )
         designer = _mock_designer_agent()
         orch = create_variant_orchestrator(config, {"designer": designer})
 
         ctx = _run_context()
-        result = asyncio.get_event_loop().run_until_complete(
-            orch.execute(_task_config(), ctx)
-        )
+        result = asyncio.get_event_loop().run_until_complete(orch.execute(_task_config(), ctx))
 
         assert result.is_final is True
         assert result.round == 2  # rounds 0, 1, 2
@@ -238,19 +265,19 @@ class TestV1Baseline:
 class TestV2LeaderReviewers:
     def test_leader_reviewer_workflow(self) -> None:
         config = VariantConfig(
-            id="v2", name="Leader + Reviewers",
+            id="v2",
+            name="Leader + Reviewers",
             workflow=WorkflowConfig(max_rounds=2),
         )
         leader = _mock_designer_agent("leader")
         reviewers = [_mock_reviewer_agent("rev_0"), _mock_reviewer_agent("rev_1")]
         orch = create_variant_orchestrator(
-            config, {"leader": leader, "reviewers": reviewers},
+            config,
+            {"leader": leader, "reviewers": reviewers},
         )
 
         ctx = _run_context()
-        result = asyncio.get_event_loop().run_until_complete(
-            orch.execute(_task_config(), ctx)
-        )
+        result = asyncio.get_event_loop().run_until_complete(orch.execute(_task_config(), ctx))
 
         assert result.is_final is True
 
@@ -261,19 +288,19 @@ class TestV2LeaderReviewers:
 class TestV4Adversarial:
     def test_early_accept_stops(self) -> None:
         config = VariantConfig(
-            id="v4", name="Adversarial",
+            id="v4",
+            name="Adversarial",
             workflow=WorkflowConfig(max_rounds=5),
         )
         leader = _mock_designer_agent("leader")
         adversary = _mock_adversary_agent(["accept"])  # accepts immediately
         orch = create_variant_orchestrator(
-            config, {"leader": leader, "adversarial_reviewer": adversary},
+            config,
+            {"leader": leader, "adversarial_reviewer": adversary},
         )
 
         ctx = _run_context()
-        result = asyncio.get_event_loop().run_until_complete(
-            orch.execute(_task_config(), ctx)
-        )
+        result = asyncio.get_event_loop().run_until_complete(orch.execute(_task_config(), ctx))
 
         assert result.is_final is True
         # Only round 0 (gen) + round 1 (review → accept) = leader called once
@@ -281,19 +308,19 @@ class TestV4Adversarial:
 
     def test_reject_then_accept(self) -> None:
         config = VariantConfig(
-            id="v4", name="Adversarial",
+            id="v4",
+            name="Adversarial",
             workflow=WorkflowConfig(max_rounds=5),
         )
         leader = _mock_designer_agent("leader")
         adversary = _mock_adversary_agent(["reject", "accept"])
         orch = create_variant_orchestrator(
-            config, {"leader": leader, "adversarial_reviewer": adversary},
+            config,
+            {"leader": leader, "adversarial_reviewer": adversary},
         )
 
         ctx = _run_context()
-        result = asyncio.get_event_loop().run_until_complete(
-            orch.execute(_task_config(), ctx)
-        )
+        result = asyncio.get_event_loop().run_until_complete(orch.execute(_task_config(), ctx))
 
         assert result.is_final is True
 
@@ -304,10 +331,12 @@ class TestV4Adversarial:
 class TestV3ParallelMerge:
     def test_parallel_then_merge(self) -> None:
         config = VariantConfig(
-            id="v3", name="Parallel Merge",
+            id="v3",
+            name="Parallel Merge",
             agents=VariantAgentsConfig(
                 parallel_leaders=AgentConfig(
-                    role="designer", model="gpt-4.1",
+                    role="designer",
+                    model="gpt-4.1",
                     system_prompt_template="generation/design_system.j2",
                     count=3,
                 ),
@@ -317,13 +346,12 @@ class TestV3ParallelMerge:
         leaders = [_mock_designer_agent(f"pl_{i}") for i in range(3)]
         merger = _mock_merger_agent()
         orch = create_variant_orchestrator(
-            config, {"parallel_leaders": leaders, "merger": merger},
+            config,
+            {"parallel_leaders": leaders, "merger": merger},
         )
 
         ctx = _run_context()
-        result = asyncio.get_event_loop().run_until_complete(
-            orch.execute(_task_config(), ctx)
-        )
+        result = asyncio.get_event_loop().run_until_complete(orch.execute(_task_config(), ctx))
 
         assert result.is_final is True
         assert result.agent_id == "merger"
@@ -335,19 +363,38 @@ class TestV3ParallelMerge:
 class TestV8StructuredDebate:
     def test_debate_then_judge(self) -> None:
         config = VariantConfig(
-            id="v8", name="Structured Debate",
+            id="v8",
+            name="Structured Debate",
             workflow=WorkflowConfig(max_rounds=2),
         )
-        debaters = [_mock_designer_agent(f"debater_{i}") for i in range(3)]
+
+        # v8 calls debater._call_llm() directly, so we need AsyncMock for it
+        def _mock_debater(agent_id: str) -> MagicMock:
+            agent = _mock_designer_agent(agent_id)
+            agent.role = "debater"
+
+            call_count = 0
+
+            async def mock_call_llm(**kwargs):
+                nonlocal call_count
+                call_count += 1
+                resp = MagicMock()
+                resp.content = f"Position from {agent_id}"
+                resp.output_tokens = 100
+                return resp
+
+            agent._call_llm = mock_call_llm
+            return agent
+
+        debaters = [_mock_debater(f"debater_{i}") for i in range(3)]
         judge = _mock_judge_agent()
         orch = create_variant_orchestrator(
-            config, {"debaters": debaters, "judge": judge},
+            config,
+            {"debaters": debaters, "judge": judge},
         )
 
         ctx = _run_context()
-        result = asyncio.get_event_loop().run_until_complete(
-            orch.execute(_task_config(), ctx)
-        )
+        result = asyncio.get_event_loop().run_until_complete(orch.execute(_task_config(), ctx))
 
         assert result.is_final is True
         assert result.agent_id == "judge"

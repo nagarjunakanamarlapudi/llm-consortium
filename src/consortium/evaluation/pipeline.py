@@ -126,6 +126,48 @@ class EvaluationPipeline:
 
         return [dict(row) for row in rows]
 
+    @property
+    def _use_batch(self) -> bool:
+        """Check if batch evaluation should be used."""
+        batch_cfg = getattr(self.evaluator_config, "batch", None)
+        batch_enabled = batch_cfg is not None and getattr(batch_cfg, "enabled", False)
+        provider_supports = getattr(self.provider, "supports_batch", False)
+        if callable(provider_supports):
+            provider_supports = provider_supports()
+        return batch_enabled and provider_supports
+
+    def _build_eval_request(
+        self,
+        *,
+        design_text: str,
+        task_config,
+        rubric_config,
+    ) -> LLMRequest:
+        """Build an LLMRequest for a single evaluation call."""
+        template_vars = {
+            "design_text": design_text,
+            "system_name": task_config.variables.system_name,
+            "complexity": task_config.complexity,
+            "design_type": task_config.design_type,
+            "rubric_dimensions": [d.model_dump() for d in rubric_config.dimensions],
+        }
+
+        prompt_content = self.renderer.render(
+            self.evaluator_config.prompt_template,
+            **template_vars,
+        )
+
+        return LLMRequest(
+            system_prompt="",
+            messages=[{"role": "user", "content": prompt_content}],
+            model_config_id=self.model_config.id,
+            parameters={
+                "temperature": self.evaluator_config.parameters.temperature,
+                "max_tokens": self.evaluator_config.parameters.max_tokens,
+            },
+            metadata={"step": "evaluation"},
+        )
+
     async def evaluate(
         self,
         *,
@@ -156,6 +198,10 @@ class EvaluationPipeline:
 
         stats = {"total": len(designs), "evaluated": 0, "failed": 0}
 
+        if self._use_batch and designs:
+            return await self._evaluate_batch(designs, force=force, stats=stats)
+
+        # Sequential fallback
         for design_row in designs:
             design_id = design_row["design_id"]
             task_id = design_row["task_id"]
@@ -208,6 +254,157 @@ class EvaluationPipeline:
         log.info("evaluation_complete", **stats)
         return stats
 
+    async def _evaluate_batch(
+        self,
+        designs: list[dict],
+        *,
+        force: bool,
+        stats: dict[str, int],
+    ) -> dict[str, int]:
+        """Evaluate all designs using batch API for cost savings.
+
+        Collects all (design x runs_per_design) requests, submits as a single
+        batch, then parses and persists results. Falls back to sequential for
+        any designs that fail in the batch.
+        """
+        runs_per_design = self.evaluator_config.runs_per_design
+        batch_cfg = self.evaluator_config.batch
+        batch_size = getattr(batch_cfg, "batch_size", 100)
+
+        log = logger.bind(
+            mode="batch",
+            designs=len(designs),
+            runs_per_design=runs_per_design,
+            total_requests=len(designs) * runs_per_design,
+            batch_size=batch_size,
+        )
+        log.info("batch_evaluation_start")
+
+        # Phase 1: Build all requests and track metadata for response mapping
+        all_requests: list[LLMRequest] = []
+        request_metadata: list[dict] = []  # parallel to all_requests
+
+        for design_row in designs:
+            design_id = design_row["design_id"]
+            task_id = design_row["task_id"]
+            design_text = design_row["full_text"]
+            d_run_id = design_row["run_id"]
+
+            try:
+                task_config = self.config.get_task(task_id)
+                rubric_config = self.config.get_rubric(task_config.rubric)
+            except Exception as e:
+                log.error("batch_config_error", design_id=design_id, error=str(e))
+                stats["failed"] += 1
+                continue
+
+            if force:
+                self._clear_evaluations(design_id)
+
+            for eval_run in range(runs_per_design):
+                request = self._build_eval_request(
+                    design_text=design_text,
+                    task_config=task_config,
+                    rubric_config=rubric_config,
+                )
+                all_requests.append(request)
+                request_metadata.append(
+                    {
+                        "design_id": design_id,
+                        "task_id": task_id,
+                        "run_id": d_run_id,
+                        "eval_run": eval_run,
+                        "rubric_config": rubric_config,
+                    }
+                )
+
+        if not all_requests:
+            log.info("batch_evaluation_no_requests")
+            return stats
+
+        # Phase 2: Submit in batch chunks
+        all_responses: list[LLMResponse | None] = []
+        for chunk_start in range(0, len(all_requests), batch_size):
+            chunk = all_requests[chunk_start : chunk_start + batch_size]
+            chunk_num = chunk_start // batch_size + 1
+            total_chunks = (len(all_requests) + batch_size - 1) // batch_size
+            log.info(
+                "batch_chunk_submit",
+                chunk=chunk_num,
+                total_chunks=total_chunks,
+                requests=len(chunk),
+            )
+            try:
+                responses = await self.provider.complete_batch(chunk)
+                all_responses.extend(responses)
+            except Exception as e:
+                log.error("batch_chunk_failed", chunk=chunk_num, error=str(e))
+                # Mark remaining as None for fallback
+                all_responses.extend([None] * len(chunk))
+
+        # Phase 3: Parse responses, persist, compute medians
+        # Group responses by design_id
+        design_evaluations: dict[str, list[dict]] = {}
+        design_meta: dict[str, dict] = {}
+
+        for idx, (response, meta) in enumerate(zip(all_responses, request_metadata, strict=True)):
+            design_id = meta["design_id"]
+            eval_run = meta["eval_run"]
+            d_log = log.bind(design_id=design_id, eval_run=eval_run)
+
+            if response is None:
+                d_log.error("batch_response_missing", idx=idx)
+                continue
+
+            try:
+                result = _extract_json(response.content)
+                result["_input_tokens"] = response.input_tokens
+                result["_output_tokens"] = response.output_tokens
+                result["_cost_usd"] = response.cost_usd
+                result["_batch_id"] = response.batch_id
+
+                self._persist_evaluation(
+                    design_id=design_id,
+                    evaluator_run=eval_run,
+                    result=result,
+                )
+
+                design_evaluations.setdefault(design_id, []).append(result)
+                design_meta[design_id] = meta
+                d_log.debug("batch_eval_parsed", overall=result.get("overall_score"))
+
+            except Exception as e:
+                d_log.error("batch_parse_failed", error=str(e))
+
+        # Phase 4: Compute medians for each design that got all evaluations
+        for design_id, evaluations in design_evaluations.items():
+            meta = design_meta[design_id]
+            if len(evaluations) < runs_per_design:
+                log.warning(
+                    "batch_incomplete_evaluations",
+                    design_id=design_id,
+                    got=len(evaluations),
+                    expected=runs_per_design,
+                )
+
+            if evaluations:
+                try:
+                    self._compute_and_persist_medians(
+                        design_id=design_id,
+                        run_id=meta["run_id"],
+                        evaluations=evaluations,
+                        rubric_config=meta["rubric_config"],
+                    )
+                    stats["evaluated"] += 1
+                except Exception as e:
+                    stats["failed"] += 1
+                    log.error("batch_median_failed", design_id=design_id, error=str(e))
+            else:
+                stats["failed"] += 1
+
+        log.info("batch_evaluation_complete", **stats)
+        return stats
+
     async def _evaluate_single(
         self,
         *,
@@ -221,13 +418,12 @@ class EvaluationPipeline:
             "system_name": task_config.variables.system_name,
             "complexity": task_config.complexity,
             "design_type": task_config.design_type,
-            "rubric_dimensions": [
-                d.model_dump() for d in rubric_config.dimensions
-            ],
+            "rubric_dimensions": [d.model_dump() for d in rubric_config.dimensions],
         }
 
         prompt_content = self.renderer.render(
-            self.evaluator_config.prompt_template, **template_vars,
+            self.evaluator_config.prompt_template,
+            **template_vars,
         )
 
         request = LLMRequest(

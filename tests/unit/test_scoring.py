@@ -12,7 +12,7 @@ class TestDatabase:
         with Database(tmp_db) as db:
             db.init_schema()
             version = db.get_schema_version()
-            assert version == 1
+            assert version == 2
 
     def test_stats_empty(self, tmp_db: Path) -> None:
         with Database(tmp_db) as db:

@@ -174,7 +174,8 @@ class AnthropicProvider(LLMProvider):
 
         # Collect results.
         results_by_custom_id: dict[str, Any] = {}
-        async for result in self._client.messages.batches.results(batch_id):
+        result_stream = await self._client.messages.batches.results(batch_id)
+        async for result in result_stream:
             results_by_custom_id[result.custom_id] = result
 
         # Map results back to the original request order.
@@ -207,9 +208,7 @@ class AnthropicProvider(LLMProvider):
         )
         return responses
 
-    def estimate_cost(
-        self, input_tokens: int, output_tokens: int, *, batch: bool = False
-    ) -> float:
+    def estimate_cost(self, input_tokens: int, output_tokens: int, *, batch: bool = False) -> float:
         """Estimate cost in USD for given token counts."""
         pricing = self._config.pricing
         input_cost = (input_tokens / _TOKENS_PER_MILLION) * pricing.input
@@ -226,10 +225,7 @@ class AnthropicProvider(LLMProvider):
 
     def _build_messages(self, request: LLMRequest) -> list[MessageParam]:
         """Convert the provider-agnostic message list to Anthropic MessageParam format."""
-        return [
-            {"role": msg["role"], "content": msg["content"]}
-            for msg in request.messages
-        ]
+        return [{"role": msg["role"], "content": msg["content"]} for msg in request.messages]
 
     def _build_system(self, request: LLMRequest) -> list[dict[str, Any]]:
         """Build the system prompt blocks, with prompt caching when supported."""
@@ -262,9 +258,7 @@ class AnthropicProvider(LLMProvider):
         batch_id: str | None = None,
     ) -> LLMResponse:
         """Convert an Anthropic Message object into our canonical LLMResponse."""
-        content_parts = [
-            block.text for block in message.content if block.type == "text"
-        ]
+        content_parts = [block.text for block in message.content if block.type == "text"]
         content = "\n".join(content_parts)
 
         input_tokens = message.usage.input_tokens

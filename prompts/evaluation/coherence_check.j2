@@ -1,38 +1,36 @@
-You are checking a system design for internal contradictions between two specific sections. A contradiction exists when one section makes a claim or decision that is incompatible with another section.
+You are checking a {{ design_type }} design document for internal contradictions between two specific sections.
 
-## Section A: {{ section_a_name }}
+A contradiction exists when one section makes a claim, decision, or assumption that is incompatible with what another section states or implies.
 
-{{ section_a_text }}
+## Full Design Document
 
-## Section B: {{ section_b_name }}
+{{ design_text }}
 
-{{ section_b_text }}
+## Sections to Compare
 
-## Instructions
+**Section A:** {{ section_a_name }}
+**Section B:** {{ section_b_name }}
 
-Analyze these two sections for internal contradictions. Examples of contradictions:
-- Section A chooses eventual consistency but Section B assumes strong consistency for joins
-- Section A exposes unauthenticated endpoints but Section B claims all endpoints require auth
-- Section A says "retry all failed writes" but Section B warns about write amplification from retries
+Locate both sections in the design above and analyze them for contradictions.
+
+## What Counts as a Contradiction
+
+- One section chooses eventual consistency but the other assumes strong consistency for queries
+- One section exposes unauthenticated endpoints but the other claims all endpoints require auth
+- One section says "retry all failed writes" but the other warns about write amplification from retries
+- One section specifies PostgreSQL but the other references DynamoDB-specific patterns
+- One section claims RPO=0 but the other uses async replication
+
+Minor differences in phrasing or emphasis are NOT contradictions. Focus on decisions and claims that are logically incompatible.
 
 ## Output Format
 
-Respond with valid JSON:
+Respond with ONLY valid JSON (no markdown fences, no preamble):
 
-```json
-{
-  "contradicts": true,
-  "explanation": "Brief description of the contradiction, citing specific claims from each section."
-}
-```
+If you find a contradiction:
+{"contradicts": true, "severity": "high", "explanation": "Section A states X while Section B assumes Y. These are incompatible because Z.", "section_a_claim": "specific claim from section A", "section_b_claim": "conflicting claim from section B"}
 
-If there is no contradiction:
-
-```json
-{
-  "contradicts": false,
-  "explanation": "The sections are internally consistent because..."
-}
-```
+If the sections are consistent:
+{"contradicts": false, "severity": "none", "explanation": "Both sections consistently assume/use X.", "section_a_claim": "", "section_b_claim": ""}
 
 Analyze now.

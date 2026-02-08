@@ -1,5 +1,6 @@
 evaluator:
-  model: "sonnet-4.5"
+  # model: "sonnet-4.5"
+  model: "gpt-oss-120b"
 
   runs_per_design: 3
   aggregation: "median"

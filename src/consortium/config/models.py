@@ -206,6 +206,7 @@ class CoherenceCheckConfig(BaseModel, frozen=True):
 
     enabled: bool = True
     prompt_template: str = "evaluation/coherence_check.j2"
+    section_pairs: list[list[str]] = Field(default_factory=list)
 
 
 class ReliabilityConfig(BaseModel, frozen=True):

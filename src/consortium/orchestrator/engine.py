@@ -39,7 +39,10 @@ class OrchestratorEngine:
         self.renderer = PromptRenderer(prompts_dir)
 
     def _find_existing_run(
-        self, variant_id: str, task_id: str, repetition: int,
+        self,
+        variant_id: str,
+        task_id: str,
+        repetition: int,
     ) -> tuple[str | None, str | None]:
         """Check if a completed or in-progress run already exists.
 
@@ -87,14 +90,13 @@ class OrchestratorEngine:
 
         # Check for existing run
         existing_status, existing_run_id = self._find_existing_run(
-            variant_id, task_id, repetition,
+            variant_id,
+            task_id,
+            repetition,
         )
 
         if existing_status == "completed" and not force:
-            msg = (
-                f"Run already completed: {existing_run_id}. "
-                "Use --force to overwrite."
-            )
+            msg = f"Run already completed: {existing_run_id}. Use --force to overwrite."
             raise RuntimeError(msg)
 
         if existing_status in ("running", "failed") and not resume and not force:
@@ -125,7 +127,10 @@ class OrchestratorEngine:
         context.rubric_dimensions = list(rubric_config.dimensions)
 
         log = logger.bind(
-            run_id=run_id, variant=variant_id, task=task_id, rep=repetition,
+            run_id=run_id,
+            variant=variant_id,
+            task=task_id,
+            rep=repetition,
         )
         log.info("run_start")
 
@@ -160,6 +165,7 @@ class OrchestratorEngine:
             context.status = "failed"
             context.ended_at = datetime.now(UTC)
             import traceback
+
             context.error = traceback.format_exc()
             log.error("run_failed", error=context.error)
             self._persist_run(context, variant_config, task_config)
@@ -177,11 +183,13 @@ class OrchestratorEngine:
         conn.execute("DELETE FROM reviews WHERE run_id = ?", (run_id,))
         # Delete evaluations and scores for designs in this run
         design_ids = [
-            row[0] for row in conn.execute(
+            row[0]
+            for row in conn.execute(
                 "SELECT design_id FROM designs WHERE run_id = ?", (run_id,)
             ).fetchall()
         ]
         for did in design_ids:
+            conn.execute("DELETE FROM coherence_checks WHERE design_id = ?", (did,))
             conn.execute("DELETE FROM evaluations WHERE design_id = ?", (did,))
             conn.execute("DELETE FROM scores_median WHERE design_id = ?", (did,))
         conn.execute("DELETE FROM designs WHERE run_id = ?", (run_id,))
@@ -209,7 +217,9 @@ class OrchestratorEngine:
                 variant_config.model_dump_json(),
                 task_config.model_dump_json(),
                 "{}",
-                0, 0, 0.0,
+                0,
+                0,
+                0.0,
                 context.started_at.isoformat() if context.started_at else None,
             ),
         )
@@ -271,8 +281,14 @@ class OrchestratorEngine:
                     full_text, token_count, is_final, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    d.design_id, d.run_id, d.round, d.agent_role,
-                    d.agent_id, d.full_text, d.token_count, d.is_final,
+                    d.design_id,
+                    d.run_id,
+                    d.round,
+                    d.agent_role,
+                    d.agent_id,
+                    d.full_text,
+                    d.token_count,
+                    d.is_final,
                     d.created_at.isoformat() if d.created_at else None,
                 ),
             )
@@ -285,8 +301,14 @@ class OrchestratorEngine:
                     agent_id, review_text, verdict, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    r.review_id, r.run_id, r.design_id, r.round,
-                    r.agent_role, r.agent_id, r.review_text, r.verdict,
+                    r.review_id,
+                    r.run_id,
+                    r.design_id,
+                    r.round,
+                    r.agent_role,
+                    r.agent_id,
+                    r.review_text,
+                    r.verdict,
                     r.created_at.isoformat() if r.created_at else None,
                 ),
             )
@@ -306,15 +328,33 @@ class OrchestratorEngine:
                     batch_id, status, error, retry_count
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    t.trace_id, t.run_id, t.variant_id, t.task_id,
-                    t.repetition, t.agent_role, t.agent_id, t.step,
-                    t.round, t.model_config_id, t.api_model, t.provider,
-                    t.system_prompt_hash, t.prompt_template,
-                    t.prompt_text, t.response_text,
-                    t.input_tokens, t.output_tokens, t.cached_input_tokens,
-                    t.cost_usd, t.latency_ms,
-                    t.started_at.isoformat(), t.ended_at.isoformat(),
-                    t.batch_id, t.status, t.error, t.retry_count,
+                    t.trace_id,
+                    t.run_id,
+                    t.variant_id,
+                    t.task_id,
+                    t.repetition,
+                    t.agent_role,
+                    t.agent_id,
+                    t.step,
+                    t.round,
+                    t.model_config_id,
+                    t.api_model,
+                    t.provider,
+                    t.system_prompt_hash,
+                    t.prompt_template,
+                    t.prompt_text,
+                    t.response_text,
+                    t.input_tokens,
+                    t.output_tokens,
+                    t.cached_input_tokens,
+                    t.cost_usd,
+                    t.latency_ms,
+                    t.started_at.isoformat(),
+                    t.ended_at.isoformat(),
+                    t.batch_id,
+                    t.status,
+                    t.error,
+                    t.retry_count,
                 ),
             )
 
@@ -376,21 +416,16 @@ class ExperimentRunner:
             Summary dict with counts of completed, skipped, failed runs.
         """
         variant_ids = variants or [
-            v.split("_")[0] if "_" in v else v
-            for v in self.config.experiment.variants
+            v.split("_")[0] if "_" in v else v for v in self.config.experiment.variants
         ]
         task_ids = tasks or [
-            t.split("_")[0] if "_" in t else t
-            for t in self.config.experiment.tasks
+            t.split("_")[0] if "_" in t else t for t in self.config.experiment.tasks
         ]
         reps = repetitions or self.config.experiment.repetitions
 
         # Build the run matrix
         run_matrix = [
-            (vid, tid, rep)
-            for vid in variant_ids
-            for tid in task_ids
-            for rep in range(reps)
+            (vid, tid, rep) for vid in variant_ids for tid in task_ids for rep in range(reps)
         ]
 
         # Filter out completed runs if resuming
@@ -420,13 +455,19 @@ class ExperimentRunner:
         for i, (vid, tid, rep) in enumerate(pending):
             run_log = log.bind(
                 progress=f"{i + 1}/{len(pending)}",
-                variant=vid, task=tid, rep=rep,
+                variant=vid,
+                task=tid,
+                rep=rep,
             )
             run_log.info("run_queued")
 
             try:
                 design = await self.engine.run(
-                    vid, tid, rep, resume=resume, force=force,
+                    vid,
+                    tid,
+                    rep,
+                    resume=resume,
+                    force=force,
                 )
                 stats["completed"] += 1
 

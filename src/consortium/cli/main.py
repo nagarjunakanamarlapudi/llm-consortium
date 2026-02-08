@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import typer
 
+from consortium.cli.analyze import app as analyze_app
 from consortium.cli.db import app as db_app
 from consortium.cli.run import app as run_app
+from consortium.cli.timeline import app as timeline_app
 from consortium.cli.validate import app as validate_app
 
 app = typer.Typer(
@@ -17,6 +19,8 @@ app = typer.Typer(
 app.add_typer(run_app, name="run", help="Run experiments (single, experiment, evaluate)")
 app.add_typer(validate_app, name="validate", help="Validate configuration files")
 app.add_typer(db_app, name="db", help="Database operations (init, stats, export)")
+app.add_typer(timeline_app, name="timeline", help="LLM call timeline views")
+app.add_typer(analyze_app, name="analyze", help="Statistical analysis and visualization")
 
 
 @app.callback()

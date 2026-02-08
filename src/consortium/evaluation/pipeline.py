@@ -584,3 +584,220 @@ class EvaluationPipeline:
         conn.execute("DELETE FROM evaluations WHERE design_id = ?", (design_id,))
         conn.execute("DELETE FROM scores_median WHERE design_id = ?", (design_id,))
         conn.commit()
+
+    # ── Coherence Checking ───────────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_coherence_response(text: str) -> dict[str, Any]:
+        """Parse coherence check response, with regex fallback."""
+        try:
+            return _extract_json(text)
+        except ValueError:
+            # Fallback: look for CONTRADICTS/CONSISTENT keyword
+            if re.search(r"CONTRADICTS", text, re.IGNORECASE):
+                return {"contradicts": True, "explanation": text, "confidence": 0.5}
+            return {"contradicts": False, "explanation": text, "confidence": 0.5}
+
+    def _resolve_section_pairs(self, task_config: Any) -> list[tuple[str, str]]:
+        """Resolve section pairs from evaluator config or rubric."""
+        # Priority 1: evaluator config section_pairs
+        cc = self.evaluator_config.coherence_check
+        if cc.section_pairs:
+            return [(p[0], p[1]) for p in cc.section_pairs if len(p) >= 2]
+
+        # Priority 2: rubric coherence_pairs
+        rubric_config = self.config.get_rubric(task_config.rubric)
+        if rubric_config.coherence_pairs:
+            return [(p[0], p[1]) for p in rubric_config.coherence_pairs if len(p) >= 2]
+
+        # No pairs configured — skip
+        return []
+
+    async def run_coherence_checks(
+        self,
+        design_id: str,
+        design_text: str,
+        section_pairs: list[tuple[str, str]],
+        design_type: str = "system",
+    ) -> list[dict[str, Any]]:
+        """Check internal consistency between design sections.
+
+        For each (section_a, section_b) pair:
+        1. Render coherence_check.j2 with full design + section names
+        2. Call evaluator LLM (it locates the sections itself)
+        3. Parse JSON response with defensive fallback
+        4. Persist to coherence_checks table
+        """
+        results: list[dict[str, Any]] = []
+
+        for section_a_name, section_b_name in section_pairs:
+            log = logger.bind(
+                design_id=design_id,
+                section_a=section_a_name,
+                section_b=section_b_name,
+            )
+            log.info("coherence_check_start")
+
+            try:
+                # Pass the full design text — let the LLM locate sections.
+                # No regex extraction needed; section names in the YAML
+                # match the heading names from our prompt templates.
+                template_vars = {
+                    "design_text": design_text,
+                    "design_type": design_type,
+                    "section_a_name": section_a_name,
+                    "section_b_name": section_b_name,
+                }
+
+                prompt_content = self.renderer.render(
+                    self.evaluator_config.coherence_check.prompt_template,
+                    **template_vars,
+                )
+
+                request = LLMRequest(
+                    system_prompt="",
+                    messages=[{"role": "user", "content": prompt_content}],
+                    model_config_id=self.model_config.id,
+                    parameters={
+                        "temperature": 0.1,
+                        "max_tokens": 1024,
+                    },
+                    metadata={"step": "coherence_check"},
+                )
+
+                response: LLMResponse = await self.provider.complete(request)
+                parsed = self._parse_coherence_response(response.content)
+
+                # Persist
+                check_id = uuid.uuid4().hex
+                conn = self.database.conn
+                conn.execute(
+                    """INSERT OR REPLACE INTO coherence_checks
+                       (check_id, design_id, section_pair, contradicts, explanation)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (
+                        check_id,
+                        design_id,
+                        f"{section_a_name}|{section_b_name}",
+                        parsed.get("contradicts", False),
+                        parsed.get("explanation", ""),
+                    ),
+                )
+                conn.commit()
+
+                result = {
+                    "check_id": check_id,
+                    "design_id": design_id,
+                    "section_a": section_a_name,
+                    "section_b": section_b_name,
+                    "contradicts": parsed.get("contradicts", False),
+                    "explanation": parsed.get("explanation", ""),
+                    "confidence": parsed.get("confidence", 1.0),
+                    "_input_tokens": response.input_tokens,
+                    "_output_tokens": response.output_tokens,
+                    "_cost_usd": response.cost_usd,
+                }
+                results.append(result)
+
+                log.info(
+                    "coherence_check_done",
+                    contradicts=result["contradicts"],
+                )
+
+            except Exception as e:
+                log.error("coherence_check_failed", error=str(e))
+
+        return results
+
+    async def run_all_coherence_checks(
+        self,
+        *,
+        run_id: str | None = None,
+        force: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, int]:
+        """Run coherence checks on all final designs.
+
+        Args:
+            run_id: Only check this run's designs.
+            force: Re-check already checked designs.
+            dry_run: Report what would be checked.
+
+        Returns:
+            Stats dict: checked, skipped, failed counts.
+        """
+        if not self.evaluator_config.coherence_check.enabled:
+            logger.info("coherence_checks_disabled")
+            return {"total": 0, "checked": 0, "failed": 0}
+
+        if force:
+            designs = self._get_all_final_designs(run_id)
+        else:
+            designs = self._get_unchecked_designs(run_id)
+
+        log = logger.bind(designs_to_check=len(designs))
+        log.info("coherence_check_start_all")
+
+        if dry_run:
+            return {"total": len(designs), "checked": 0, "failed": 0}
+
+        stats = {"total": len(designs), "checked": 0, "failed": 0}
+
+        for design_row in designs:
+            design_id = design_row["design_id"]
+            task_id = design_row["task_id"]
+            design_text = design_row["full_text"]
+
+            try:
+                task_config = self.config.get_task(task_id)
+                section_pairs = self._resolve_section_pairs(task_config)
+
+                if not section_pairs:
+                    log.debug("coherence_no_pairs", design_id=design_id, task=task_id)
+                    continue
+
+                if force:
+                    self.database.conn.execute(
+                        "DELETE FROM coherence_checks WHERE design_id = ?",
+                        (design_id,),
+                    )
+                    self.database.conn.commit()
+
+                await self.run_coherence_checks(
+                    design_id=design_id,
+                    design_text=design_text,
+                    section_pairs=section_pairs,
+                    design_type=task_config.design_type,
+                )
+                stats["checked"] += 1
+
+            except Exception as e:
+                stats["failed"] += 1
+                log.error("coherence_design_failed", design_id=design_id, error=str(e))
+
+        log.info("coherence_check_complete", **stats)
+        return stats
+
+    def _get_unchecked_designs(self, run_id: str | None = None) -> list[dict]:
+        """Get final designs that haven't had coherence checks."""
+        conn = self.database.conn
+
+        if run_id:
+            rows = conn.execute(
+                """SELECT d.design_id, d.run_id, d.full_text, r.task_id, r.variant_id
+                   FROM designs d
+                   JOIN runs r ON d.run_id = r.run_id
+                   WHERE d.is_final = TRUE AND r.run_id = ?
+                   AND d.design_id NOT IN (SELECT DISTINCT design_id FROM coherence_checks)""",
+                (run_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT d.design_id, d.run_id, d.full_text, r.task_id, r.variant_id
+                   FROM designs d
+                   JOIN runs r ON d.run_id = r.run_id
+                   WHERE d.is_final = TRUE AND r.status = 'completed'
+                   AND d.design_id NOT IN (SELECT DISTINCT design_id FROM coherence_checks)"""
+            ).fetchall()
+
+        return [dict(row) for row in rows]

@@ -4,10 +4,10 @@ rubric:
   description: "Rubric for evaluating application-level software design quality."
 
   coherence_pairs:
-    - ["error_handling", "state_management"]
-    - ["state_management", "concurrency_safety"]
-    - ["interface_design", "domain_model"]
-    - ["testability", "module_structure"]
+    - ["Error Handling Strategy", "State Management & Lifecycle"]
+    - ["State Management & Lifecycle", "Concurrency & Thread Safety"]
+    - ["Interface & Contract Design", "Domain Model"]
+    - ["Testing Architecture", "Module / Package Structure"]
 
   dimensions:
     - id: "requirement_coverage"

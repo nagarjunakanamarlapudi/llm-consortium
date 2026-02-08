@@ -4,9 +4,9 @@ rubric:
   description: "Rubric for evaluating distributed system and infrastructure design quality."
 
   coherence_pairs:
-    - ["data_architecture", "scalability_strategy"]
-    - ["api_design", "security_design"]
-    - ["reliability", "trade_off_honesty"]
+    - ["Data Model & Storage Design", "Scalability & Performance Strategy"]
+    - ["API Design", "Security Design"]
+    - ["Reliability & Failure Handling", "Trade-off Summary Table"]
 
   dimensions:
     - id: "requirement_coverage"

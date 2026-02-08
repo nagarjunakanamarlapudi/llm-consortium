@@ -19,7 +19,8 @@ _DEFAULT_PROMPTS = Path("prompts")
 
 
 def _load_config_and_db(
-    config_dir: Path, database: Path,
+    config_dir: Path,
+    database: Path,
 ) -> tuple:
     """Load FullConfig and Database, initialising DB schema if needed."""
     from consortium.config.loader import load_full_config
@@ -49,9 +50,7 @@ def single(
     engine = OrchestratorEngine(config, db, prompts_dir)
 
     try:
-        design = asyncio.run(
-            engine.run(variant, task, rep, resume=resume, force=force)
-        )
+        design = asyncio.run(engine.run(variant, task, rep, resume=resume, force=force))
         console.print(f"[green]✓ Run completed: {design.design_id}[/green]")
         console.print(f"  Design length: {len(design.full_text):,} chars")
     except RuntimeError as e:
@@ -80,7 +79,9 @@ def experiment(
     ),
     resume: bool = typer.Option(True, "--resume/--no-resume", help="Skip completed runs"),
     force: bool = typer.Option(False, "--force", help="Re-run even completed runs"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Report what would run without executing"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Report what would run without executing"
+    ),
 ) -> None:
     """Run the full experiment matrix (variants × tasks × repetitions)."""
     from consortium.orchestrator.engine import ExperimentRunner
@@ -148,9 +149,7 @@ def evaluate(
     pipeline = EvaluationPipeline(config, db, prompts_dir)
 
     try:
-        stats = asyncio.run(
-            pipeline.evaluate(run_id=run_id, force=force, dry_run=dry_run)
-        )
+        stats = asyncio.run(pipeline.evaluate(run_id=run_id, force=force, dry_run=dry_run))
 
         table = Table(title="Evaluation Results")
         table.add_column("Metric", style="cyan")
@@ -284,5 +283,60 @@ def status(
         console.print(table)
         console.print(f"\nEvaluated designs: {evaluated}/{completed}")
         console.print(f"Total cost: ${total_cost:.2f}")
+    finally:
+        db.close()
+
+
+@app.command()
+def coherence(
+    config_dir: Path = typer.Option(_DEFAULT_CONFIGS, "--configs", "-c"),
+    database: Path = typer.Option(_DEFAULT_DB, "--database", "-d"),
+    prompts_dir: Path = typer.Option(_DEFAULT_PROMPTS, "--prompts", "-p"),
+    run_id: Optional[str] = typer.Option(None, "--run-id", help="Check only this run's designs"),
+    all_designs: bool = typer.Option(False, "--all", help="Check all final designs"),
+    force: bool = typer.Option(False, "--force", help="Re-check already checked designs"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report what would be checked"),
+) -> None:
+    """Run coherence checks on final designs."""
+    from consortium.evaluation.pipeline import EvaluationPipeline
+
+    config, db = _load_config_and_db(config_dir, database)
+    pipeline = EvaluationPipeline(config, db, prompts_dir)
+
+    try:
+        stats = asyncio.run(
+            pipeline.run_all_coherence_checks(
+                run_id=run_id,
+                force=force,
+                dry_run=dry_run,
+            )
+        )
+
+        table = Table(title="Coherence Check Results")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Count", justify="right")
+
+        for key, value in stats.items():
+            style = ""
+            if key == "failed" and value > 0:
+                style = "red"
+            elif key == "checked":
+                style = "green"
+            table.add_row(key, str(value), style=style)
+
+        console.print(table)
+
+        # Show contradictions found
+        contradictions = db.conn.execute(
+            "SELECT COUNT(*) as cnt FROM coherence_checks WHERE contradicts = TRUE"
+        ).fetchone()
+        if contradictions and contradictions["cnt"] > 0:
+            console.print(
+                f"\n[yellow]⚠ {contradictions['cnt']} contradiction(s) found. "
+                "Review with 'consortium db export'.[/yellow]"
+            )
+    except Exception as e:
+        console.print(f"[red]Coherence check failed: {e}[/red]")
+        raise typer.Exit(code=1)
     finally:
         db.close()

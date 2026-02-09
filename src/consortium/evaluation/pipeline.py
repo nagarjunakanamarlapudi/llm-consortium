@@ -201,55 +201,97 @@ class EvaluationPipeline:
         if self._use_batch and designs:
             return await self._evaluate_batch(designs, force=force, stats=stats)
 
-        # Sequential fallback
-        for design_row in designs:
-            design_id = design_row["design_id"]
-            task_id = design_row["task_id"]
-            design_text = design_row["full_text"]
-            d_run_id = design_row["run_id"]
+        # Sequential evaluation with progress bar
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
 
-            d_log = log.bind(design_id=design_id, task=task_id)
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.fields[current]}"),
+            BarColumn(bar_width=30),
+            MofNCompleteColumn(),
+            TextColumn("[green]ok:{task.fields[ok]}[/green]"),
+            TextColumn("[red]err:{task.fields[fail]}[/red]"),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("eta"),
+            TimeRemainingColumn(),
+        )
 
-            try:
-                task_config = self.config.get_task(task_id)
-                rubric_config = self.config.get_rubric(task_config.rubric)
+        with progress:
+            ptask = progress.add_task(
+                "Evaluating",
+                total=len(designs),
+                current="starting...",
+                ok=0,
+                fail=0,
+            )
 
-                # Clear existing evaluations if force
-                if force:
-                    self._clear_evaluations(design_id)
+            for design_row in designs:
+                design_id = design_row["design_id"]
+                task_id = design_row["task_id"]
+                design_text = design_row["full_text"]
+                d_run_id = design_row["run_id"]
 
-                # Run N evaluator calls
-                evaluations = []
-                for eval_run in range(self.evaluator_config.runs_per_design):
-                    d_log.info("evaluator_call", eval_run=eval_run)
-                    result = await self._evaluate_single(
-                        design_text=design_text,
-                        task_config=task_config,
+                short_id = design_id[:20] if len(design_id) > 20 else design_id
+                progress.update(ptask, current=f"{short_id} ({task_id})")
+
+                d_log = log.bind(design_id=design_id, task=task_id)
+
+                try:
+                    task_config = self.config.get_task(task_id)
+                    rubric_config = self.config.get_rubric(task_config.rubric)
+
+                    # Clear existing evaluations if force
+                    if force:
+                        self._clear_evaluations(design_id)
+
+                    # Run N evaluator calls
+                    evaluations = []
+                    for eval_run in range(self.evaluator_config.runs_per_design):
+                        d_log.info("evaluator_call", eval_run=eval_run)
+                        result = await self._evaluate_single(
+                            design_text=design_text,
+                            task_config=task_config,
+                            rubric_config=rubric_config,
+                        )
+                        evaluations.append(result)
+
+                        # Persist individual evaluation
+                        self._persist_evaluation(
+                            design_id=design_id,
+                            evaluator_run=eval_run,
+                            result=result,
+                        )
+
+                    # Compute and persist median scores
+                    self._compute_and_persist_medians(
+                        design_id=design_id,
+                        run_id=d_run_id,
+                        evaluations=evaluations,
                         rubric_config=rubric_config,
                     )
-                    evaluations.append(result)
 
-                    # Persist individual evaluation
-                    self._persist_evaluation(
-                        design_id=design_id,
-                        evaluator_run=eval_run,
-                        result=result,
-                    )
+                    stats["evaluated"] += 1
+                    d_log.info("design_evaluated", overall=evaluations[0]["overall_score"])
 
-                # Compute and persist median scores
-                self._compute_and_persist_medians(
-                    design_id=design_id,
-                    run_id=d_run_id,
-                    evaluations=evaluations,
-                    rubric_config=rubric_config,
+                except Exception as e:
+                    stats["failed"] += 1
+                    d_log.error("evaluation_failed", error=str(e))
+
+                progress.update(
+                    ptask,
+                    advance=1,
+                    ok=stats["evaluated"],
+                    fail=stats["failed"],
                 )
-
-                stats["evaluated"] += 1
-                d_log.info("design_evaluated", overall=evaluations[0]["overall_score"])
-
-            except Exception as e:
-                stats["failed"] += 1
-                d_log.error("evaluation_failed", error=str(e))
 
         log.info("evaluation_complete", **stats)
         return stats
@@ -322,85 +364,136 @@ class EvaluationPipeline:
             log.info("batch_evaluation_no_requests")
             return stats
 
-        # Phase 2: Submit in batch chunks
-        all_responses: list[LLMResponse | None] = []
-        for chunk_start in range(0, len(all_requests), batch_size):
-            chunk = all_requests[chunk_start : chunk_start + batch_size]
-            chunk_num = chunk_start // batch_size + 1
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
+
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.fields[phase]}"),
+            BarColumn(bar_width=30),
+            MofNCompleteColumn(),
+            TextColumn("[green]ok:{task.fields[ok]}[/green]"),
+            TextColumn("[red]err:{task.fields[fail]}[/red]"),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("eta"),
+            TimeRemainingColumn(),
+        )
+
+        with progress:
             total_chunks = (len(all_requests) + batch_size - 1) // batch_size
-            log.info(
-                "batch_chunk_submit",
-                chunk=chunk_num,
-                total_chunks=total_chunks,
-                requests=len(chunk),
+
+            # Phase 2: Submit in batch chunks
+            all_responses: list[LLMResponse | None] = []
+            ptask = progress.add_task(
+                "Batch submit",
+                total=total_chunks,
+                phase="Submitting batches",
+                ok=0,
+                fail=0,
             )
-            try:
-                responses = await self.provider.complete_batch(chunk)
-                all_responses.extend(responses)
-            except Exception as e:
-                log.error("batch_chunk_failed", chunk=chunk_num, error=str(e))
-                # Mark remaining as None for fallback
-                all_responses.extend([None] * len(chunk))
-
-        # Phase 3: Parse responses, persist, compute medians
-        # Group responses by design_id
-        design_evaluations: dict[str, list[dict]] = {}
-        design_meta: dict[str, dict] = {}
-
-        for idx, (response, meta) in enumerate(zip(all_responses, request_metadata, strict=True)):
-            design_id = meta["design_id"]
-            eval_run = meta["eval_run"]
-            d_log = log.bind(design_id=design_id, eval_run=eval_run)
-
-            if response is None:
-                d_log.error("batch_response_missing", idx=idx)
-                continue
-
-            try:
-                result = _extract_json(response.content)
-                result["_input_tokens"] = response.input_tokens
-                result["_output_tokens"] = response.output_tokens
-                result["_cost_usd"] = response.cost_usd
-                result["_batch_id"] = response.batch_id
-
-                self._persist_evaluation(
-                    design_id=design_id,
-                    evaluator_run=eval_run,
-                    result=result,
+            for chunk_start in range(0, len(all_requests), batch_size):
+                chunk = all_requests[chunk_start : chunk_start + batch_size]
+                chunk_num = chunk_start // batch_size + 1
+                progress.update(
+                    ptask, phase=f"Batch {chunk_num}/{total_chunks} ({len(chunk)} reqs)"
                 )
-
-                design_evaluations.setdefault(design_id, []).append(result)
-                design_meta[design_id] = meta
-                d_log.debug("batch_eval_parsed", overall=result.get("overall_score"))
-
-            except Exception as e:
-                d_log.error("batch_parse_failed", error=str(e))
-
-        # Phase 4: Compute medians for each design that got all evaluations
-        for design_id, evaluations in design_evaluations.items():
-            meta = design_meta[design_id]
-            if len(evaluations) < runs_per_design:
-                log.warning(
-                    "batch_incomplete_evaluations",
-                    design_id=design_id,
-                    got=len(evaluations),
-                    expected=runs_per_design,
+                log.info(
+                    "batch_chunk_submit",
+                    chunk=chunk_num,
+                    total_chunks=total_chunks,
+                    requests=len(chunk),
                 )
-
-            if evaluations:
                 try:
-                    self._compute_and_persist_medians(
-                        design_id=design_id,
-                        run_id=meta["run_id"],
-                        evaluations=evaluations,
-                        rubric_config=meta["rubric_config"],
-                    )
-                    stats["evaluated"] += 1
+                    responses = await self.provider.complete_batch(chunk)
+                    all_responses.extend(responses)
+                    progress.update(ptask, advance=1, ok=chunk_num)
                 except Exception as e:
+                    log.error("batch_chunk_failed", chunk=chunk_num, error=str(e))
+                    all_responses.extend([None] * len(chunk))
+                    progress.update(ptask, advance=1, fail=chunk_num)
+
+            # Phase 3: Parse responses, persist, compute medians
+            design_evaluations: dict[str, list[dict]] = {}
+            design_meta: dict[str, dict] = {}
+
+            progress.update(ptask, phase="Parsing responses", completed=0, total=len(all_responses))
+            for idx, (response, meta) in enumerate(
+                zip(all_responses, request_metadata, strict=True)
+            ):
+                design_id = meta["design_id"]
+                eval_run = meta["eval_run"]
+                d_log = log.bind(design_id=design_id, eval_run=eval_run)
+
+                if response is None:
+                    d_log.error("batch_response_missing", idx=idx)
+                    progress.update(ptask, advance=1)
+                    continue
+
+                try:
+                    result = _extract_json(response.content)
+                    result["_input_tokens"] = response.input_tokens
+                    result["_output_tokens"] = response.output_tokens
+                    result["_cost_usd"] = response.cost_usd
+                    result["_batch_id"] = response.batch_id
+
+                    self._persist_evaluation(
+                        design_id=design_id,
+                        evaluator_run=eval_run,
+                        result=result,
+                    )
+
+                    design_evaluations.setdefault(design_id, []).append(result)
+                    design_meta[design_id] = meta
+                    d_log.debug("batch_eval_parsed", overall=result.get("overall_score"))
+
+                except Exception as e:
+                    d_log.error("batch_parse_failed", error=str(e))
+
+                progress.update(ptask, advance=1)
+
+            # Phase 4: Compute medians for each design that got all evaluations
+            progress.update(
+                ptask,
+                phase="Computing medians",
+                completed=0,
+                total=len(design_evaluations),
+                ok=0,
+                fail=0,
+            )
+            for design_id, evaluations in design_evaluations.items():
+                meta = design_meta[design_id]
+                if len(evaluations) < runs_per_design:
+                    log.warning(
+                        "batch_incomplete_evaluations",
+                        design_id=design_id,
+                        got=len(evaluations),
+                        expected=runs_per_design,
+                    )
+
+                if evaluations:
+                    try:
+                        self._compute_and_persist_medians(
+                            design_id=design_id,
+                            run_id=meta["run_id"],
+                            evaluations=evaluations,
+                            rubric_config=meta["rubric_config"],
+                        )
+                        stats["evaluated"] += 1
+                    except Exception as e:
+                        stats["failed"] += 1
+                        log.error("batch_median_failed", design_id=design_id, error=str(e))
+                else:
                     stats["failed"] += 1
-                    log.error("batch_median_failed", design_id=design_id, error=str(e))
-            else:
-                stats["failed"] += 1
+
+                progress.update(ptask, advance=1, ok=stats["evaluated"], fail=stats["failed"])
 
         log.info("batch_evaluation_complete", **stats)
         return stats
@@ -743,6 +836,31 @@ class EvaluationPipeline:
 
         stats = {"total": len(designs), "checked": 0, "failed": 0}
 
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
+
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.fields[phase]}"),
+            BarColumn(bar_width=30),
+            MofNCompleteColumn(),
+            TextColumn("[green]ok:{task.fields[ok]}[/green]"),
+            TextColumn("[red]err:{task.fields[fail]}[/red]"),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("eta"),
+            TimeRemainingColumn(),
+        )
+
+        # Pre-resolve section pairs and build work items
+        work_items: list[dict] = []
         for design_row in designs:
             design_id = design_row["design_id"]
             task_id = design_row["task_id"]
@@ -751,7 +869,6 @@ class EvaluationPipeline:
             try:
                 task_config = self.config.get_task(task_id)
                 section_pairs = self._resolve_section_pairs(task_config)
-
                 if not section_pairs:
                     log.debug("coherence_no_pairs", design_id=design_id, task=task_id)
                     continue
@@ -763,19 +880,216 @@ class EvaluationPipeline:
                     )
                     self.database.conn.commit()
 
-                await self.run_coherence_checks(
-                    design_id=design_id,
-                    design_text=design_text,
-                    section_pairs=section_pairs,
-                    design_type=task_config.design_type,
+                work_items.append(
+                    {
+                        "design_id": design_id,
+                        "task_id": task_id,
+                        "design_text": design_text,
+                        "design_type": task_config.design_type,
+                        "section_pairs": section_pairs,
+                    }
                 )
-                stats["checked"] += 1
-
             except Exception as e:
                 stats["failed"] += 1
-                log.error("coherence_design_failed", design_id=design_id, error=str(e))
+                log.error("coherence_config_failed", design_id=design_id, error=str(e))
+
+        if not work_items:
+            log.info("coherence_check_no_work")
+            return stats
+
+        if self._use_batch:
+            return await self._coherence_batch(
+                work_items,
+                stats=stats,
+                progress=progress,
+                log=log,
+            )
+
+        # Sequential fallback
+        with progress:
+            ptask = progress.add_task(
+                "Coherence",
+                total=len(work_items),
+                phase="starting...",
+                ok=0,
+                fail=0,
+            )
+
+            for item in work_items:
+                design_id = item["design_id"]
+                short_id = design_id[:20] if len(design_id) > 20 else design_id
+                progress.update(ptask, phase=f"{short_id} ({item['task_id']})")
+
+                try:
+                    await self.run_coherence_checks(
+                        design_id=design_id,
+                        design_text=item["design_text"],
+                        section_pairs=item["section_pairs"],
+                        design_type=item["design_type"],
+                    )
+                    stats["checked"] += 1
+                except Exception as e:
+                    stats["failed"] += 1
+                    log.error("coherence_design_failed", design_id=design_id, error=str(e))
+
+                progress.update(
+                    ptask,
+                    advance=1,
+                    ok=stats["checked"],
+                    fail=stats["failed"],
+                )
 
         log.info("coherence_check_complete", **stats)
+        return stats
+
+    async def _coherence_batch(
+        self,
+        work_items: list[dict],
+        *,
+        stats: dict[str, int],
+        progress,
+        log,
+    ) -> dict[str, int]:
+        """Run coherence checks using batch API.
+
+        Collects all (design x section_pair) requests, submits in chunks
+        via complete_batch, then parses and persists results.
+        """
+        batch_cfg = self.evaluator_config.batch
+        batch_size = getattr(batch_cfg, "batch_size", 100)
+
+        # Phase 1: Build all requests
+        all_requests: list[LLMRequest] = []
+        request_meta: list[dict] = []
+
+        for item in work_items:
+            design_id = item["design_id"]
+            design_text = item["design_text"]
+            design_type = item["design_type"]
+
+            for section_a, section_b in item["section_pairs"]:
+                template_vars = {
+                    "design_text": design_text,
+                    "design_type": design_type,
+                    "section_a_name": section_a,
+                    "section_b_name": section_b,
+                }
+                prompt_content = self.renderer.render(
+                    self.evaluator_config.coherence_check.prompt_template,
+                    **template_vars,
+                )
+                request = LLMRequest(
+                    system_prompt="",
+                    messages=[{"role": "user", "content": prompt_content}],
+                    model_config_id=self.model_config.id,
+                    parameters={"temperature": 0.1, "max_tokens": 1024},
+                    metadata={"step": "coherence_check"},
+                )
+                all_requests.append(request)
+                request_meta.append(
+                    {
+                        "design_id": design_id,
+                        "section_a": section_a,
+                        "section_b": section_b,
+                    }
+                )
+
+        log.info(
+            "coherence_batch_start",
+            total_requests=len(all_requests),
+            batch_size=batch_size,
+        )
+
+        if not all_requests:
+            return stats
+
+        total_chunks = (len(all_requests) + batch_size - 1) // batch_size
+
+        with progress:
+            # Phase 2: Submit in batch chunks
+            all_responses: list[LLMResponse | None] = []
+            ptask = progress.add_task(
+                "Coherence batch",
+                total=total_chunks,
+                phase="Submitting batches",
+                ok=0,
+                fail=0,
+            )
+
+            for chunk_start in range(0, len(all_requests), batch_size):
+                chunk = all_requests[chunk_start : chunk_start + batch_size]
+                chunk_num = chunk_start // batch_size + 1
+                progress.update(
+                    ptask,
+                    phase=f"Batch {chunk_num}/{total_chunks} ({len(chunk)} reqs)",
+                )
+                try:
+                    responses = await self.provider.complete_batch(chunk)
+                    all_responses.extend(responses)
+                    progress.update(ptask, advance=1, ok=chunk_num)
+                except Exception as e:
+                    log.error("coherence_batch_chunk_failed", chunk=chunk_num, error=str(e))
+                    all_responses.extend([None] * len(chunk))
+                    progress.update(ptask, advance=1, fail=chunk_num)
+
+            # Phase 3: Parse responses and persist
+            progress.update(
+                ptask,
+                phase="Parsing responses",
+                completed=0,
+                total=len(all_responses),
+            )
+
+            design_ok: set[str] = set()
+            design_fail: set[str] = set()
+            conn = self.database.conn
+
+            for response, meta in zip(
+                all_responses,
+                request_meta,
+                strict=True,
+            ):
+                design_id = meta["design_id"]
+
+                if response is None:
+                    design_fail.add(design_id)
+                    progress.update(ptask, advance=1)
+                    continue
+
+                try:
+                    parsed = self._parse_coherence_response(response.content)
+                    check_id = uuid.uuid4().hex
+                    conn.execute(
+                        """INSERT OR REPLACE INTO coherence_checks
+                           (check_id, design_id, section_pair,
+                            contradicts, explanation)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (
+                            check_id,
+                            design_id,
+                            f"{meta['section_a']}|{meta['section_b']}",
+                            parsed.get("contradicts", False),
+                            parsed.get("explanation", ""),
+                        ),
+                    )
+                    design_ok.add(design_id)
+                except Exception as e:
+                    log.error(
+                        "coherence_batch_parse_failed",
+                        design_id=design_id,
+                        error=str(e),
+                    )
+                    design_fail.add(design_id)
+
+                progress.update(ptask, advance=1)
+
+            conn.commit()
+
+        # Count designs that succeeded (appeared in ok but not fail)
+        stats["checked"] = len(design_ok - design_fail)
+        stats["failed"] += len(design_fail)
+
+        log.info("coherence_batch_complete", **stats)
         return stats
 
     def _get_unchecked_designs(self, run_id: str | None = None) -> list[dict]:

@@ -5,7 +5,7 @@ model:
 
   ollama:
     host: "${OLLAMA_HOST:-http://localhost:11434}"
-    concurrency: 2
+    concurrency: 50
     keep_alive: "30m"
 
   pricing:
@@ -26,3 +26,6 @@ model:
   rate_limits:
     requests_per_minute: 10
     tokens_per_minute: 500000
+
+
+# OLLAMA_NUM_PARALLEL=50 ollama serve

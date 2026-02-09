@@ -452,48 +452,93 @@ class ExperimentRunner:
         stats = {"completed": 0, "failed": 0, "skipped": len(completed)}
         total_cost = 0.0
 
-        for i, (vid, tid, rep) in enumerate(pending):
-            run_log = log.bind(
-                progress=f"{i + 1}/{len(pending)}",
-                variant=vid,
-                task=tid,
-                rep=rep,
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
+
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.fields[current]}"),
+            BarColumn(bar_width=30),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            TextColumn("[green]✓{task.fields[ok]}[/green]"),
+            TextColumn("[red]✗{task.fields[fail]}[/red]"),
+            TextColumn("[dim]${task.fields[cost]}[/dim]"),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("eta"),
+            TimeRemainingColumn(),
+        )
+
+        with progress:
+            task = progress.add_task(
+                "Experiment",
+                total=len(pending),
+                current="starting…",
+                ok=0,
+                fail=0,
+                cost="0.00",
             )
-            run_log.info("run_queued")
 
-            try:
-                design = await self.engine.run(
-                    vid,
-                    tid,
-                    rep,
-                    resume=resume,
-                    force=force,
+            for i, (vid, tid, rep) in enumerate(pending):
+                progress.update(task, current=f"{vid} x {tid} rep{rep}")
+
+                run_log = log.bind(
+                    progress=f"{i + 1}/{len(pending)}",
+                    variant=vid,
+                    task=tid,
+                    rep=rep,
                 )
-                stats["completed"] += 1
+                run_log.info("run_queued")
 
-                # Track cost from latest run
-                row = self.database.conn.execute(
-                    "SELECT total_cost_usd FROM runs WHERE run_id = "
-                    "(SELECT run_id FROM designs WHERE design_id = ?)",
-                    (design.design_id,),
-                ).fetchone()
-                if row:
-                    total_cost += row["total_cost_usd"]
-
-                # Check total cost limit
-                limits = self.config.experiment.limits
-                if total_cost > limits.max_total_cost_usd:
-                    run_log.error(
-                        "total_cost_limit_exceeded",
-                        total_cost=f"${total_cost:.2f}",
-                        limit=f"${limits.max_total_cost_usd:.2f}",
+                try:
+                    design = await self.engine.run(
+                        vid,
+                        tid,
+                        rep,
+                        resume=resume,
+                        force=force,
                     )
-                    break
+                    stats["completed"] += 1
 
-            except Exception as e:
-                stats["failed"] += 1
-                run_log.error("run_failed", error=str(e))
-                # Continue to next run on failure
+                    # Track cost from latest run
+                    row = self.database.conn.execute(
+                        "SELECT total_cost_usd FROM runs WHERE run_id = "
+                        "(SELECT run_id FROM designs WHERE design_id = ?)",
+                        (design.design_id,),
+                    ).fetchone()
+                    if row:
+                        total_cost += row["total_cost_usd"]
+
+                    # Check total cost limit
+                    limits = self.config.experiment.limits
+                    if total_cost > limits.max_total_cost_usd:
+                        run_log.error(
+                            "total_cost_limit_exceeded",
+                            total_cost=f"${total_cost:.2f}",
+                            limit=f"${limits.max_total_cost_usd:.2f}",
+                        )
+                        break
+
+                except Exception as e:
+                    stats["failed"] += 1
+                    run_log.error("run_failed", error=str(e))
+                    # Continue to next run on failure
+
+                progress.update(
+                    task,
+                    advance=1,
+                    ok=stats["completed"],
+                    fail=stats["failed"],
+                    cost=f"{total_cost:.2f}",
+                )
 
         log.info(
             "experiment_complete",

@@ -1,15 +1,12 @@
 # LLM Consortium Decision Framework
 
-Generated: 2026-02-07T22:54:38.718984
-Runs analyzed: 8
-Pareto-optimal variants: v1
-
-## Warnings
-- ⚠ Only 1 run per variant for 'all' — IQR and CV are unreliable.
+Generated: 2026-02-08T20:35:52.282890
+Runs analyzed: 320
+Pareto-optimal variants: v1, v2, v3
 
 ## Recommendations
 
 | Complexity | Budget | Quality | Variant | Quality IQR | Cost IQR | Coherence | Confidence |
 |---|---|---|---|---|---|---|---|
-| all | low | robust | **v1** | 2.80-2.80 | $0.00-$0.00 | 33% ⚠ | low |
-| all | any | robust | **v1** | 2.80-2.80 | $0.00-$0.00 | 33% ⚠ | low |
+| all | low | good | **v1** | 2.50-3.20 | $0.00-$0.00 | 83% | high |
+| all | any | robust | **v3** | 2.80-3.40 | $0.00-$0.00 | 95% | low |

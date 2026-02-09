@@ -21,4 +21,4 @@ evaluator:
 
   batch:
     enabled: true
-    batch_size: 50
+    batch_size: 200

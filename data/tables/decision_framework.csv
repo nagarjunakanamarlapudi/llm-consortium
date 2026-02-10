@@ -1,0 +1,3 @@
+complexity,budget_priority,quality_priority,recommended_variant,quality_iqr_low,quality_iqr_high,cost_iqr_low,cost_iqr_high,coherence_rate,coherence_warning,confidence,evidence
+all,low,good,v1,2.8,3.1,0.0,0.0,0.8666666666666668,,low,"Based on 5 runs, p=0.1250"
+all,any,robust,v2,3.3,3.5,0.0,0.0,0.6,Low coherence (60%),low,"Based on 5 runs, p=0.1250"

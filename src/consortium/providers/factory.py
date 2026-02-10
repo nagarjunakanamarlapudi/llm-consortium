@@ -36,6 +36,7 @@ def _ensure_registry() -> None:
         from consortium.providers.google import GoogleProvider
 
         _PROVIDER_REGISTRY["google"] = GoogleProvider
+        _PROVIDER_REGISTRY["google_vertex"] = GoogleProvider
     except ImportError:
         logger.debug("google_sdk_not_available")
 
@@ -82,6 +83,10 @@ def create_provider(
     if provider_name == "ollama":
         # Ollama doesn't need an API key
         return provider_cls(model_config)  # type: ignore[call-arg]
+
+    if provider_name == "google_vertex":
+        # Vertex AI uses ADC (gcloud auth), not an API key
+        return provider_cls(model_config, vertexai=True)  # type: ignore[call-arg]
 
     if api_key is not None:
         return provider_cls(model_config, api_key=api_key)  # type: ignore[call-arg]

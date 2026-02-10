@@ -69,15 +69,19 @@ class EvaluationPipeline:
         config: FullConfig,
         database: Database,
         prompts_dir: str | Path,
+        registry: object | None = None,
     ) -> None:
         self.config = config
         self.database = database
         self.renderer = PromptRenderer(prompts_dir)
         self.evaluator_config = config.evaluator
 
-        # Create evaluator provider
+        # Create evaluator provider (use registry if provided for shared batching)
         model_config = config.get_model(self.evaluator_config.model)
-        self.provider = create_provider(model_config)
+        if registry is not None:
+            self.provider = registry.get(model_config)
+        else:
+            self.provider = create_provider(model_config)
         self.model_config = model_config
 
     def _get_unevaluated_designs(self, run_id: str | None = None) -> list[dict]:
@@ -174,6 +178,7 @@ class EvaluationPipeline:
         run_id: str | None = None,
         force: bool = False,
         dry_run: bool = False,
+        quiet: bool = False,
     ) -> dict[str, int]:
         """Evaluate final designs.
 
@@ -199,7 +204,7 @@ class EvaluationPipeline:
         stats = {"total": len(designs), "evaluated": 0, "failed": 0}
 
         if self._use_batch and designs:
-            return await self._evaluate_batch(designs, force=force, stats=stats)
+            return await self._evaluate_batch(designs, force=force, stats=stats, quiet=quiet)
 
         # Sequential evaluation with progress bar
         from rich.progress import (
@@ -223,6 +228,7 @@ class EvaluationPipeline:
             TimeElapsedColumn(),
             TextColumn("eta"),
             TimeRemainingColumn(),
+            disable=quiet,
         )
 
         with progress:
@@ -302,6 +308,7 @@ class EvaluationPipeline:
         *,
         force: bool,
         stats: dict[str, int],
+        quiet: bool = False,
     ) -> dict[str, int]:
         """Evaluate all designs using batch API for cost savings.
 
@@ -385,6 +392,7 @@ class EvaluationPipeline:
             TimeElapsedColumn(),
             TextColumn("eta"),
             TimeRemainingColumn(),
+            disable=quiet,
         )
 
         with progress:
@@ -808,6 +816,7 @@ class EvaluationPipeline:
         run_id: str | None = None,
         force: bool = False,
         dry_run: bool = False,
+        quiet: bool = False,
     ) -> dict[str, int]:
         """Run coherence checks on all final designs.
 
@@ -857,6 +866,7 @@ class EvaluationPipeline:
             TimeElapsedColumn(),
             TextColumn("eta"),
             TimeRemainingColumn(),
+            disable=quiet,
         )
 
         # Pre-resolve section pairs and build work items

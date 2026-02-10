@@ -78,6 +78,7 @@ def instantiate_agents(
     limits: LimitsConfig | None = None,
     *,
     _provider_cache: dict[str, LLMProvider] | None = None,
+    _provider_factory: object | None = None,
 ) -> dict[str, BaseAgent | list[BaseAgent]]:
     """Create all agents defined in a variant config.
 
@@ -91,6 +92,9 @@ def instantiate_agents(
         renderer: Shared prompt renderer.
         limits: Optional safety limits passed to each agent.
         _provider_cache: Optional shared provider cache across calls.
+        _provider_factory: Optional callable ``(model_id: str) -> LLMProvider``
+            used instead of the default ``create_provider()``.  Enables
+            sharing providers across runs via a ProviderRegistry.
 
     Returns:
         Dict mapping agent key names to agent instances (or lists of agents).
@@ -109,8 +113,11 @@ def instantiate_agents(
 
     def _get_provider(model_id: str) -> LLMProvider:
         if model_id not in providers:
-            model_cfg = full_config.get_model(model_id)
-            providers[model_id] = create_provider(model_cfg)
+            if _provider_factory is not None:
+                providers[model_id] = _provider_factory(model_id)
+            else:
+                model_cfg = full_config.get_model(model_id)
+                providers[model_id] = create_provider(model_cfg)
         return providers[model_id]
 
     # ── Single-agent fields ──────────────────────────────────────────────

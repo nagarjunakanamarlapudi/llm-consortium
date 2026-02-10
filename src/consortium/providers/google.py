@@ -54,16 +54,33 @@ class GoogleProvider(LLMProvider):
     not expose a native batch API comparable to Anthropic/OpenAI.
     """
 
-    def __init__(self, config: ModelConfig, *, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        config: ModelConfig,
+        *,
+        api_key: str | None = None,
+        vertexai: bool = False,
+    ) -> None:
         self._config = config
-        api_key = api_key or os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            msg = (
-                "Google API key is required. Pass api_key= or set the "
-                "GOOGLE_API_KEY environment variable."
-            )
-            raise ValueError(msg)
-        self._client = genai.Client(api_key=api_key)
+        if vertexai:
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+            if not project:
+                msg = (
+                    "GOOGLE_CLOUD_PROJECT is required for Vertex AI. "
+                    "Set the GOOGLE_CLOUD_PROJECT environment variable."
+                )
+                raise ValueError(msg)
+            self._client = genai.Client(vertexai=True, project=project, location=location)
+        else:
+            api_key = api_key or os.environ.get("GOOGLE_API_KEY")
+            if not api_key:
+                msg = (
+                    "Google API key is required. Pass api_key= or set the "
+                    "GOOGLE_API_KEY environment variable."
+                )
+                raise ValueError(msg)
+            self._client = genai.Client(api_key=api_key)
 
     # ── Public interface ─────────────────────────────────────────────────
 
@@ -111,9 +128,7 @@ class GoogleProvider(LLMProvider):
         log.info("google.batch_done", total=len(responses))
         return responses
 
-    def estimate_cost(
-        self, input_tokens: int, output_tokens: int, *, batch: bool = False
-    ) -> float:
+    def estimate_cost(self, input_tokens: int, output_tokens: int, *, batch: bool = False) -> float:
         """Estimate cost in USD from the model's pricing config."""
         pricing = self._config.pricing
         per_million = 1_000_000.0

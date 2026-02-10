@@ -40,6 +40,18 @@ class ModelParametersConfig(BaseModel, frozen=True):
     top_p: float = 1.0
 
 
+class BatchingConfig(BaseModel, frozen=True):
+    """Configuration for request micro-batching on an LLM model.
+
+    When enabled, individual ``complete()`` calls are coalesced into
+    batch ``complete_batch()`` calls via the async-batcher library.
+    """
+
+    enabled: bool = False
+    window_ms: float = 100.0
+    max_batch_size: int = 64
+
+
 class ModelConfig(BaseModel, frozen=True):
     """Configuration for a single LLM model."""
 
@@ -54,6 +66,7 @@ class ModelConfig(BaseModel, frozen=True):
     supports_caching: bool = False
     rate_limits: RateLimitConfig = RateLimitConfig()
     ollama: OllamaConfig | None = None
+    batching: BatchingConfig | None = None
 
 
 # ── Agent & Variant Config ───────────────────────────────────────────────────

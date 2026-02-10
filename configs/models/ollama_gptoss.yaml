@@ -5,8 +5,8 @@ model:
 
   ollama:
     host: "${OLLAMA_HOST:-http://localhost:11434}"
-    concurrency: 50
-    keep_alive: "30m"
+    concurrency: 10
+    keep_alive: "60m"
 
   pricing:
     input: 0.00
@@ -22,6 +22,11 @@ model:
   context_window: 128000
   supports_batch: true
   supports_caching: false
+
+  batching:
+    enabled: true
+    window_ms: 120000
+    max_batch_size: 50
 
   rate_limits:
     requests_per_minute: 10

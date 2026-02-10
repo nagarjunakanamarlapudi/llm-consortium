@@ -33,10 +33,12 @@ class OrchestratorEngine:
         config: FullConfig,
         database: Database,
         prompts_dir: str | Path,
+        registry: object | None = None,
     ) -> None:
         self.config = config
         self.database = database
         self.renderer = PromptRenderer(prompts_dir)
+        self._registry = registry  # ProviderRegistry (optional, avoids circular import)
 
     def _find_existing_run(
         self,
@@ -138,12 +140,23 @@ class OrchestratorEngine:
         self._persist_run_start(context, variant_config, task_config)
 
         try:
+            # Build provider factory from registry if available
+            provider_factory = None
+            if self._registry is not None:
+                def _make_factory(reg):
+                    def _factory(model_id: str):
+                        mc = self.config.get_model(model_id)
+                        return reg.get(mc)
+                    return _factory
+                provider_factory = _make_factory(self._registry)
+
             # Instantiate agents
             agents = instantiate_agents(
                 variant_config=variant_config,
                 full_config=self.config,
                 renderer=self.renderer,
                 limits=limits,
+                _provider_factory=provider_factory,
             )
 
             # Create and execute the variant orchestrator

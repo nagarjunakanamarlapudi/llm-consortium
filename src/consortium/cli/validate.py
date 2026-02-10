@@ -58,7 +58,7 @@ def validate(
         for f in sorted(models_dir.glob("*.yaml")):
             try:
                 mc = load_model_config(f)
-                if mc.provider not in ("openai", "anthropic", "google", "ollama"):
+                if mc.provider not in ("openai", "anthropic", "google", "google_vertex", "ollama"):
                     warnings.append((f.name, f"Unknown provider: {mc.provider}"))
                 successes.append(f"models/{f.name}")
             except Exception as e:
@@ -126,9 +126,7 @@ def validate(
         for task_ref in full.experiment.tasks:
             found = any(t_id.startswith(task_ref.split("_")[0]) for t_id in full.tasks)
             if not found:
-                warnings.append(
-                    ("experiment.yaml", f"Task '{task_ref}' referenced but not found")
-                )
+                warnings.append(("experiment.yaml", f"Task '{task_ref}' referenced but not found"))
     except Exception as e:
         errors.append(("full_config", str(e)))
 
@@ -158,12 +156,7 @@ def validate(
         raise typer.Exit(code=1)
 
     if warnings and strict:
-        console.print(
-            f"[yellow]Strict mode: {len(warnings)} warning(s) treated as errors[/yellow]"
-        )
+        console.print(f"[yellow]Strict mode: {len(warnings)} warning(s) treated as errors[/yellow]")
         raise typer.Exit(code=1)
 
-    console.print(
-        f"[green]All {len(successes)} configs valid"
-        f" ({len(warnings)} warning(s))[/green]"
-    )
+    console.print(f"[green]All {len(successes)} configs valid ({len(warnings)} warning(s))[/green]")

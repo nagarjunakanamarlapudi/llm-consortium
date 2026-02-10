@@ -18,6 +18,11 @@ model:
   supports_batch: true
   supports_caching: true
 
+  batching:
+    enabled: true
+    window_ms: 10000
+    max_batch_size: 8
+
   rate_limits:
     requests_per_minute: 1000
     tokens_per_minute: 400000

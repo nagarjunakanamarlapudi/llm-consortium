@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from consortium.config.models import FullConfig
 from rich.console import Console
 from rich.table import Table
 
@@ -14,6 +20,18 @@ console = Console()
 _DEFAULT_DB = Path("data/consortium.db")
 _DEFAULT_CONFIGS = Path("configs")
 _DEFAULT_OUTPUT = Path("data/exports")
+
+
+def _enrich_with_complexity(
+    scores_df: pd.DataFrame,
+    config: FullConfig,
+) -> pd.DataFrame:
+    """Join task complexity from config into the scores DataFrame."""
+    complexity_map = {tid: task.complexity for tid, task in config.tasks.items()}
+    if complexity_map and "task_id" in scores_df.columns:
+        scores_df = scores_df.copy()
+        scores_df["complexity"] = scores_df["task_id"].map(complexity_map)
+    return scores_df
 
 
 def _load(config_dir: Path, database: Path):
@@ -48,7 +66,9 @@ def doctor(
         )
         console.print(f"Completed: {report.actual_runs} runs ({report.run_coverage:.1%})")
         console.print(f"Evaluated: {report.evaluated_designs} designs ({report.eval_coverage:.1%})")
-        console.print(f"Coherence: {report.coherence_checked} designs ({report.coherence_coverage:.1%})")
+        console.print(
+            f"Coherence: {report.coherence_checked} designs ({report.coherence_coverage:.1%})"
+        )
 
         if report.missing_runs:
             console.print(f"\n[yellow]Missing runs ({len(report.missing_runs)}):[/yellow]")
@@ -348,10 +368,11 @@ def heatmap(
     )
     from consortium.analysis.loader import load_coherence_dataframe, load_scores_dataframe
 
-    _, db = _load(config_dir, database)
+    config, db = _load(config_dir, database)
 
     try:
         scores_df = load_scores_dataframe(db)
+        scores_df = _enrich_with_complexity(scores_df, config)
         if scores_df.empty:
             console.print("[yellow]No scores data available[/yellow]")
             return
@@ -439,7 +460,9 @@ def framework(
         costs_df = load_costs_dataframe(db)
         coherence_df = load_coherence_dataframe(db)
         fw = generate_decision_framework(
-            scores_df, costs_df, output_dir,
+            scores_df,
+            costs_df,
+            output_dir,
             coherence_df=coherence_df if not coherence_df.empty else None,
         )
 
@@ -479,7 +502,8 @@ def predictions(
         costs_df = load_costs_dataframe(db)
         coherence_df = load_coherence_dataframe(db)
         results = validate_predictions(
-            scores_df, costs_df,
+            scores_df,
+            costs_df,
             coherence_df=coherence_df if not coherence_df.empty else None,
         )
 
@@ -526,7 +550,9 @@ def coherence(
     try:
         coherence_df = load_coherence_dataframe(db)
         if coherence_df.empty:
-            console.print("[yellow]No coherence data available. Run 'consortium run coherence' first.[/yellow]")
+            console.print(
+                "[yellow]No coherence data available. Run 'consortium run coherence' first.[/yellow]"
+            )
             return
 
         # Per-variant summary
@@ -586,7 +612,11 @@ def coherence(
         if not scores_df.empty:
             corr = coherence_quality_correlation(scores_df, coherence_df)
             if corr:
-                sig_str = "[green](significant)[/green]" if corr.significant else "[yellow](not significant)[/yellow]"
+                sig_str = (
+                    "[green](significant)[/green]"
+                    if corr.significant
+                    else "[yellow](not significant)[/yellow]"
+                )
                 console.print(
                     f"\nQuality–Coherence correlation: Spearman r={corr.spearman_r:.3f}, "
                     f"p={corr.p_value:.4f} {sig_str} (n={corr.n_designs})"
@@ -655,6 +685,7 @@ def analyze_all(
 
         # 2. Load data
         scores_df = load_scores_dataframe(db)
+        scores_df = _enrich_with_complexity(scores_df, config)
         costs_df = load_costs_dataframe(db)
 
         if scores_df.empty:
@@ -722,14 +753,17 @@ def analyze_all(
 
         # 11. Framework
         fw = generate_decision_framework(
-            scores_df, costs_df, output_dir,
+            scores_df,
+            costs_df,
+            output_dir,
             coherence_df=coherence_df if not coherence_df.empty else None,
         )
         console.print(f"Framework: {len(fw.rows)} rows, {len(fw.pareto_variants)} Pareto variants")
 
         # 12. Predictions
         pred_results = validate_predictions(
-            scores_df, costs_df,
+            scores_df,
+            costs_df,
             coherence_df=coherence_df if not coherence_df.empty else None,
         )
         export_prediction_report(pred_results, output_dir)

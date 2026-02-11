@@ -10,7 +10,7 @@ variant:
   agents:
     participants:
       role: designer
-      model: llama3.2
+      model: gemini-3
       system_prompt_template: generation/design_system.j2
       parameters:
         temperature: 0.8

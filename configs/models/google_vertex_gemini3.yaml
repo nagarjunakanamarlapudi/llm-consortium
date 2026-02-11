@@ -1,7 +1,7 @@
 model:
   id: "vertex-gemini-3"
   provider: "google_vertex"
-  api_model: "gemini-2.5-pro-preview-05-06"
+  api_model: "gemini-2.5-pro"
 
   pricing:
     input: 1.25
@@ -18,6 +18,11 @@ model:
   supports_batch: false
   supports_caching: true
 
+  batching:
+    enabled: true
+    window_ms: 5000
+    max_batch_size: 10
+
   rate_limits:
-    requests_per_minute: 360
-    tokens_per_minute: 4000000
+    requests_per_minute: 10
+    tokens_per_minute: 1000000

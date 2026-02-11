@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import structlog
 from async_batcher import Batcher, BatcherStats
 
@@ -35,6 +37,8 @@ class BatchingProvider(LLMProvider):
     ) -> None:
         self._inner = inner
         self._name = name
+        self._cost_lock = threading.Lock()
+        self._total_cost = 0.0
         self._batcher: Batcher[LLMRequest, LLMResponse] = Batcher(
             handler=inner.complete_batch,
             window_ms=window_ms,
@@ -58,11 +62,21 @@ class BatchingProvider(LLMProvider):
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         """Submit a single request via the batcher (transparently batched)."""
-        return await self._batcher.submit(request)
+        resp = await self._batcher.submit(request)
+        self._accumulate_cost(resp.cost_usd)
+        return resp
 
     async def complete_batch(self, requests: list[LLMRequest]) -> list[LLMResponse]:
         """Submit multiple requests via the batcher."""
-        return await self._batcher.submit_many(requests)
+        resps = await self._batcher.submit_many(requests)
+        total = sum(r.cost_usd for r in resps)
+        self._accumulate_cost(total)
+        return resps
+
+    def _accumulate_cost(self, cost: float) -> None:
+        """Thread-safe cost accumulation."""
+        with self._cost_lock:
+            self._total_cost += cost
 
     def estimate_cost(self, input_tokens: int, output_tokens: int, *, batch: bool = False) -> float:
         """Delegate cost estimation to the inner provider."""
@@ -78,6 +92,12 @@ class BatchingProvider(LLMProvider):
     def stats(self) -> BatcherStats:
         """Current batching statistics."""
         return self._batcher.stats
+
+    @property
+    def total_cost(self) -> float:
+        """Cumulative cost of all completed requests (USD)."""
+        with self._cost_lock:
+            return self._total_cost
 
     @property
     def inner(self) -> LLMProvider:

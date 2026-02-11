@@ -12,7 +12,9 @@ variant:
       role: designer
       # model: gpt-4.1
       # model: gpt-oss-120b
-      model: llama3.2
+      # model: llama3.2
+      # model: gemini-3
+      model: vertex-gemini-3
       system_prompt_template: generation/design_system.j2
       parameters:
         temperature: 0.7

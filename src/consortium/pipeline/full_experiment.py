@@ -190,6 +190,7 @@ class FullExperimentRunner:
             tbl.add_column("Limit", justify="center")
             tbl.add_column("Queue", justify="right")
             tbl.add_column("Next ⏱", justify="right")
+            tbl.add_column("💰 Cost", justify="right")
             tbl.add_column("✈ Batches", justify="right")
             tbl.add_column("✈ Req/Batch", justify="right")
             tbl.add_column("✓ Batches", justify="right")
@@ -208,12 +209,23 @@ class FullExperimentRunner:
                     return f"{ms / 1000:.1f}s"
                 return f"{ms:.0f}ms"
 
+            def _fmt_cost(usd: float) -> str:
+                """Format cost with appropriate precision."""
+                if usd <= 0:
+                    return "[dim]$0.00[/dim]"
+                if usd < 0.01:
+                    return f"[green]${usd:.4f}[/green]"
+                if usd < 1.0:
+                    return f"[yellow]${usd:.3f}[/yellow]"
+                return f"[bold yellow]${usd:.2f}[/bold yellow]"
+
             live_state = self.registry.batcher_live_state()
             if not live_state:
                 tbl.add_row("[dim]no batching-enabled providers[/dim]")
                 return tbl
 
             now = _time.monotonic()
+            total_cost = 0.0
             for name, state in sorted(live_state.items()):
                 q = state["queue_depth"]
                 mx = state["max_batch_size"]
@@ -222,6 +234,8 @@ class FullExperimentRunner:
                 in_flight = state["in_flight_flushes"]
                 in_flight_reqs = state["in_flight_requests"]
                 st = state["stats"]
+                cost = state["total_cost"]
+                total_cost += cost
 
                 # Time until next flush — always countdown
                 if last_t > 0:
@@ -250,6 +264,7 @@ class FullExperimentRunner:
                     f"{window / 1000:.0f}s / {mx}",
                     queue_str,
                     next_str,
+                    _fmt_cost(cost),
                     flight_batches,
                     flight_rpb,
                     str(st.total_flushes),
@@ -260,6 +275,25 @@ class FullExperimentRunner:
                     _fmt_ms(st.avg_handler_ms),
                     _fmt_ms(st.max_handler_ms),
                 )
+
+            # Total row
+            tbl.add_row(
+                "[bold]TOTAL[/bold]",
+                "",
+                "",
+                "",
+                f"[bold]{_fmt_cost(total_cost)}[/bold]",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                end_section=True,
+            )
             return tbl
 
         def _build_dashboard() -> Group:

@@ -89,6 +89,7 @@ class ProviderRegistry:
         - max_batch_size: configured batch limit
         - last_flush_time: monotonic timestamp of last flush
         - in_flight_flushes: number of handler calls currently in progress
+        - total_cost: cumulative cost from completed requests (USD)
         - stats: the BatcherStats object
         """
         state: dict[str, dict] = {}
@@ -101,6 +102,7 @@ class ProviderRegistry:
                     "last_flush_time": provider.last_flush_time,
                     "in_flight_flushes": provider.in_flight_flushes,
                     "in_flight_requests": provider.in_flight_requests,
+                    "total_cost": provider.total_cost,
                     "stats": provider.stats,
                 }
         return state

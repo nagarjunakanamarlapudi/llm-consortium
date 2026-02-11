@@ -10,7 +10,8 @@ variant:
   agents:
     leader:
       role: designer
-      model: llama3.2
+      # model: llama3.2
+      model: gemini-3
       system_prompt_template: generation/design_system.j2
       parameters:
         temperature: 0.7
@@ -18,7 +19,8 @@ variant:
         top_p: 1.0
     reviewers:
       role: reviewer
-      model: llama3.2
+      # model: llama3.2
+      model: gemini-3
       system_prompt_template: review/general_review.j2
       parameters:
         temperature: 0.5

@@ -74,11 +74,11 @@ def variant_dimension_heatmap(
         pivot,
         annot=True,
         fmt=".2f",
-        cmap="YlOrRd",
+        cmap="RdYlGn",
         linewidths=0.5,
         ax=ax,
         vmin=1,
-        vmax=10,
+        vmax=5,
     )
     ax.set_title("Mean Score by Variant x Rubric Dimension")
     ax.set_ylabel("Variant")
@@ -111,9 +111,11 @@ def complexity_variant_heatmap(
         pivot,
         annot=True,
         fmt=".2f",
-        cmap="YlGnBu",
+        cmap="RdYlGn",
         linewidths=0.5,
         ax=ax,
+        vmin=1,
+        vmax=5,
     )
     ax.set_title("Mean Score by Complexity x Variant")
     ax.set_ylabel("Complexity")
@@ -145,6 +147,8 @@ def task_variant_heatmap(
         cmap="RdYlGn",
         linewidths=0.5,
         ax=ax,
+        vmin=1,
+        vmax=5,
     )
     ax.set_title("Mean Score by Task x Variant")
     ax.set_ylabel("Task")

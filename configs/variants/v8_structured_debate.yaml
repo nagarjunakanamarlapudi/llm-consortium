@@ -10,7 +10,7 @@ variant:
   agents:
     debaters:
       role: debater
-      model: llama3.2
+      model: gemini-3
       system_prompt_template: debate/position_assignment.j2
       parameters:
         temperature: 0.8
@@ -19,7 +19,7 @@ variant:
       count: 3
     judge:
       role: judge
-      model: llama3.2
+      model: gemini-3
       system_prompt_template: debate/judge_ruling.j2
       parameters:
         temperature: 0.3

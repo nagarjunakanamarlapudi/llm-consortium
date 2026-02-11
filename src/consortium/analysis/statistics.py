@@ -113,9 +113,21 @@ def rank_variants_overall(scores_df: pd.DataFrame) -> RankingResult | None:
             minimum=_MIN_OBS,
         )
 
-    # Friedman test
+    # Friedman test (requires >= 3 variants); fall back to Wilcoxon for 2
     groups = [pivot[v].values for v in variants]
-    stat, p_val = scipy_stats.friedmanchisquare(*groups)
+    if len(variants) >= 3:
+        stat, p_val = scipy_stats.friedmanchisquare(*groups)
+        test_name = "Friedman"
+    else:
+        try:
+            stat, p_val = scipy_stats.wilcoxon(
+                groups[0],
+                groups[1],
+                alternative="two-sided",
+            )
+        except ValueError:
+            stat, p_val = 0.0, 1.0
+        test_name = "Wilcoxon"
 
     # Compute mean ranks
     ranks_matrix = pivot.rank(axis=1, ascending=False)
@@ -151,7 +163,7 @@ def rank_variants_overall(scores_df: pd.DataFrame) -> RankingResult | None:
         mean_scores=mean_scores,
         statistic=stat,
         p_value=p_val,
-        test_name="Friedman",
+        test_name=test_name,
         significant=p_val < 0.05,
         posthoc=posthoc,
     )
@@ -466,7 +478,19 @@ def rank_variants_by_coherence(coherence_df: pd.DataFrame) -> RankingResult | No
         )
 
     groups = [pivot[v].values for v in variants]
-    stat, p_val = scipy_stats.friedmanchisquare(*groups)
+    if len(variants) >= 3:
+        stat, p_val = scipy_stats.friedmanchisquare(*groups)
+        test_name = "Friedman (coherence)"
+    else:
+        try:
+            stat, p_val = scipy_stats.wilcoxon(
+                groups[0],
+                groups[1],
+                alternative="two-sided",
+            )
+        except ValueError:
+            stat, p_val = 0.0, 1.0
+        test_name = "Wilcoxon (coherence)"
 
     ranks_matrix = pivot.rank(axis=1, ascending=False)
     mean_ranks = [ranks_matrix[v].mean() for v in variants]
@@ -499,7 +523,7 @@ def rank_variants_by_coherence(coherence_df: pd.DataFrame) -> RankingResult | No
         mean_scores=mean_scores,
         statistic=stat,
         p_value=p_val,
-        test_name="Friedman (coherence)",
+        test_name=test_name,
         significant=p_val < 0.05,
         posthoc=posthoc,
     )

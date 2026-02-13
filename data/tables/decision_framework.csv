@@ -1,4 +1,4 @@
 complexity,budget_priority,quality_priority,recommended_variant,quality_iqr_low,quality_iqr_high,cost_iqr_low,cost_iqr_high,coherence_rate,coherence_warning,confidence,evidence
-all,low,good,v2,3.5,4.0,0.0,0.25545625,0.6,Low coherence (60%),low,"Based on 5 runs, p=1.0000"
-all,moderate,robust,v1,4.2,4.25,0.19428499999999999,0.2010325,0.888888888888889,,low,"Based on 3 runs, p=1.0000"
-all,any,robust,v1,4.2,4.25,0.19428499999999999,0.2010325,0.888888888888889,,low,"Based on 3 runs, p=1.0000"
+all,low,high,v8,4.125,4.3,0.1423525,0.148390625,0.6916666666666667,Low coherence (69%),high,"Based on 10 runs, p=0.0020"
+all,moderate,maximum,v2,4.5,4.5,0.250516455,0.26541562500000004,0.8,,low,"Based on 10 runs, p=0.9453"
+all,any,maximum,v2,4.5,4.5,0.250516455,0.26541562500000004,0.8,,low,"Based on 10 runs, p=0.9453"

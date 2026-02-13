@@ -83,11 +83,14 @@ class DiversityConfig(BaseModel, frozen=True):
 class AgentConfig(BaseModel, frozen=True):
     """Configuration for a single agent within a variant."""
 
+    id: str | None = None  # optional agent identifier (e.g. "participant_1")
     role: str
     model: str  # references a ModelConfig.id
     system_prompt_template: str = ""
+    application_prompt_template: str = ""
     parameters: ModelParametersConfig = ModelParametersConfig()
     count: int = 1
+    perspective: str = ""  # debate perspective (e.g. "performance-first")
     diversity: DiversityConfig | None = None
 
 
@@ -144,8 +147,8 @@ class VariantAgentsConfig(BaseModel, frozen=True):
     merger: AgentConfig | None = None
     adversarial_reviewer: AgentConfig | None = None
     specialists: list[SpecialistConfig] = Field(default_factory=list)
-    participants: AgentConfig | None = None
-    debaters: AgentConfig | None = None
+    participants: list[AgentConfig] = Field(default_factory=list)
+    debaters: list[AgentConfig] = Field(default_factory=list)
     judge: AgentConfig | None = None
     evaluator: AgentConfig | None = None
 

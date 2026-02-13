@@ -45,12 +45,18 @@ def single(
 ) -> None:
     """Run a single variant × task × repetition."""
     from consortium.orchestrator.engine import OrchestratorEngine
+    from consortium.providers.registry import ProviderRegistry
 
     config, db = _load_config_and_db(config_dir, database)
-    engine = OrchestratorEngine(config, db, prompts_dir)
+
+    async def _run() -> None:
+        registry = ProviderRegistry()
+        async with registry:
+            engine = OrchestratorEngine(config, db, prompts_dir, registry=registry)
+            return await engine.run(variant, task, rep, resume=resume, force=force)
 
     try:
-        design = asyncio.run(engine.run(variant, task, rep, resume=resume, force=force))
+        design = asyncio.run(_run())
         console.print(f"[green]✓ Run completed: {design.design_id}[/green]")
         console.print(f"  Design length: {len(design.full_text):,} chars")
     except RuntimeError as e:
@@ -85,16 +91,18 @@ def experiment(
 ) -> None:
     """Run the full experiment matrix (variants × tasks × repetitions)."""
     from consortium.orchestrator.engine import ExperimentRunner
+    from consortium.providers.registry import ProviderRegistry
 
     config, db = _load_config_and_db(config_dir, database)
-    runner = ExperimentRunner(config, db, prompts_dir)
 
     variant_list = variants.split(",") if variants else None
     task_list = tasks.split(",") if tasks else None
 
-    try:
-        stats = asyncio.run(
-            runner.run_experiment(
+    async def _run() -> dict:
+        registry = ProviderRegistry()
+        async with registry:
+            runner = ExperimentRunner(config, db, prompts_dir, registry=registry)
+            return await runner.run_experiment(
                 variants=variant_list,
                 tasks=task_list,
                 repetitions=repetitions,
@@ -102,7 +110,9 @@ def experiment(
                 force=force,
                 dry_run=dry_run,
             )
-        )
+
+    try:
+        stats = asyncio.run(_run())
 
         # Display results
         table = Table(title="Experiment Results")
@@ -144,12 +154,18 @@ def evaluate(
 ) -> None:
     """Evaluate completed runs using the evaluator pipeline."""
     from consortium.evaluation.pipeline import EvaluationPipeline
+    from consortium.providers.registry import ProviderRegistry
 
     config, db = _load_config_and_db(config_dir, database)
-    pipeline = EvaluationPipeline(config, db, prompts_dir)
+
+    async def _run() -> dict:
+        registry = ProviderRegistry()
+        async with registry:
+            pipeline = EvaluationPipeline(config, db, prompts_dir, registry=registry)
+            return await pipeline.evaluate(run_id=run_id, force=force, dry_run=dry_run)
 
     try:
-        stats = asyncio.run(pipeline.evaluate(run_id=run_id, force=force, dry_run=dry_run))
+        stats = asyncio.run(_run())
 
         table = Table(title="Evaluation Results")
         table.add_column("Metric", style="cyan")
@@ -183,21 +199,25 @@ def batch(
 ) -> None:
     """Run the experiment matrix using batch APIs for efficiency."""
     from consortium.batch.runner import BatchExperimentRunner
+    from consortium.providers.registry import ProviderRegistry
 
     config, db = _load_config_and_db(config_dir, database)
-    runner = BatchExperimentRunner(config, db, str(prompts_dir))
 
     variant_list = variants.split(",") if variants else None
     task_list = tasks.split(",") if tasks else None
 
-    try:
-        stats = asyncio.run(
-            runner.run_batch_experiment(
+    async def _run() -> dict:
+        registry = ProviderRegistry()
+        async with registry:
+            runner = BatchExperimentRunner(config, db, str(prompts_dir), registry=registry)
+            return await runner.run_batch_experiment(
                 variants=variant_list,
                 tasks=task_list,
                 repetitions=repetitions,
             )
-        )
+
+    try:
+        stats = asyncio.run(_run())
 
         table = Table(title="Batch Experiment Results")
         table.add_column("Metric", style="cyan")
@@ -505,8 +525,6 @@ def _print_full_experiment_dry_run(
             "parallel_leaders",
             "merger",
             "adversarial_reviewer",
-            "participants",
-            "debaters",
             "judge",
             "evaluator",
         ]:
@@ -516,6 +534,16 @@ def _print_full_experiment_dry_run(
                 label = f"{role}" + (f" ×{count}" if count > 1 else "")
                 agent_roles.append(label)
                 models_used.add(agent.model)
+        # participants is a list[AgentConfig]
+        if agents.participants:
+            agent_roles.append(f"participants ×{len(agents.participants)}")
+            for p in agents.participants:
+                models_used.add(p.model)
+        # debaters is a list[AgentConfig]
+        if agents.debaters:
+            agent_roles.append(f"debaters ×{len(agents.debaters)}")
+            for d in agents.debaters:
+                models_used.add(d.model)
         for spec in agents.specialists:
             agent_roles.append(f"specialist:{spec.id}")
             if spec.model:
@@ -661,18 +689,22 @@ def coherence(
 ) -> None:
     """Run coherence checks on final designs."""
     from consortium.evaluation.pipeline import EvaluationPipeline
+    from consortium.providers.registry import ProviderRegistry
 
     config, db = _load_config_and_db(config_dir, database)
-    pipeline = EvaluationPipeline(config, db, prompts_dir)
 
-    try:
-        stats = asyncio.run(
-            pipeline.run_all_coherence_checks(
+    async def _run() -> dict:
+        registry = ProviderRegistry()
+        async with registry:
+            pipeline = EvaluationPipeline(config, db, prompts_dir, registry=registry)
+            return await pipeline.run_all_coherence_checks(
                 run_id=run_id,
                 force=force,
                 dry_run=dry_run,
             )
-        )
+
+    try:
+        stats = asyncio.run(_run())
 
         table = Table(title="Coherence Check Results")
         table.add_column("Metric", style="cyan")

@@ -9,17 +9,39 @@ variant:
   sub_variant: null
   agents:
     debaters:
-      role: debater
-      model: gemini-3
-      system_prompt_template: debate/position_assignment.j2
-      parameters:
-        temperature: 0.8
-        max_tokens: 16384
-        top_p: 1.0
-      count: 3
+      - id: debater_1
+        role: debater
+        model: vertex-gemini-2.5-pro
+        perspective: "performance-first"
+        system_prompt_template: debate/position_assignment.j2
+        application_prompt_template: debate/position_assignment.j2
+        parameters:
+          temperature: 0.8
+          max_tokens: 16384
+          top_p: 1.0
+      - id: debater_2
+        role: debater
+        model: vertex-gemini-2.5-pro
+        perspective: "simplicity-first"
+        system_prompt_template: debate/position_assignment.j2
+        application_prompt_template: debate/position_assignment.j2
+        parameters:
+          temperature: 0.8
+          max_tokens: 16384
+          top_p: 1.0
+      - id: debater_3
+        role: debater
+        model: vertex-gemini-2.5-pro
+        perspective: "resilience-first"
+        system_prompt_template: debate/position_assignment.j2
+        application_prompt_template: debate/position_assignment.j2
+        parameters:
+          temperature: 0.8
+          max_tokens: 16384
+          top_p: 1.0
     judge:
       role: judge
-      model: gemini-3
+      model: gpt-oss-120b
       system_prompt_template: debate/judge_ruling.j2
       parameters:
         temperature: 0.3

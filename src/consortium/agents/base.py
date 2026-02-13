@@ -36,6 +36,8 @@ class BaseAgent(abc.ABC):
         provider: LLMProvider,
         renderer: PromptRenderer,
         prompt_template: str,
+        application_prompt_template: str = "",
+        perspective: str = "",
         parameters: ModelParametersConfig | None = None,
         limits: LimitsConfig | None = None,
     ) -> None:
@@ -45,6 +47,8 @@ class BaseAgent(abc.ABC):
         self.provider = provider
         self.renderer = renderer
         self.prompt_template = prompt_template
+        self.application_prompt_template = application_prompt_template
+        self.perspective = perspective
         self.parameters = parameters or model_config.parameters
         self.limits = limits
         self._log = logger.bind(agent_id=agent_id, role=role, model=model_config.id)
@@ -119,9 +123,7 @@ class BaseAgent(abc.ABC):
             model_config_id=self.model_config.id,
             api_model=response.model,
             provider=self.model_config.provider,
-            system_prompt_hash=hashlib.sha256(
-                prompt_content.encode()
-            ).hexdigest()[:16],
+            system_prompt_hash=hashlib.sha256(prompt_content.encode()).hexdigest()[:16],
             prompt_template=template,
             prompt_text=prompt_content,
             response_text=response.content,

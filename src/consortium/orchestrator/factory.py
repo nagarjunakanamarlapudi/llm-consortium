@@ -125,37 +125,61 @@ def instantiate_agents(
     # designer (v1)
     if va.designer is not None:
         agents_map["designer"] = _make_agent(
-            DesignerAgent, "designer", va.designer, full_config,
-            renderer, _get_provider, limits,
+            DesignerAgent,
+            "designer",
+            va.designer,
+            full_config,
+            renderer,
+            _get_provider,
+            limits,
         )
 
     # leader (v2, v4, v5)
     if va.leader is not None:
         agents_map["leader"] = _make_agent(
-            DesignerAgent, "leader", va.leader, full_config,
-            renderer, _get_provider, limits,
+            DesignerAgent,
+            "leader",
+            va.leader,
+            full_config,
+            renderer,
+            _get_provider,
+            limits,
         )
 
     # merger (v3)
     if va.merger is not None:
         agents_map["merger"] = _make_agent(
-            MergerAgent, "merger", va.merger, full_config,
-            renderer, _get_provider, limits,
+            MergerAgent,
+            "merger",
+            va.merger,
+            full_config,
+            renderer,
+            _get_provider,
+            limits,
         )
 
     # adversarial_reviewer (v4)
     if va.adversarial_reviewer is not None:
         agents_map["adversarial_reviewer"] = _make_agent(
-            AdversarialReviewer, "adversarial_reviewer",
-            va.adversarial_reviewer, full_config,
-            renderer, _get_provider, limits,
+            AdversarialReviewer,
+            "adversarial_reviewer",
+            va.adversarial_reviewer,
+            full_config,
+            renderer,
+            _get_provider,
+            limits,
         )
 
     # judge (v8)
     if va.judge is not None:
         agents_map["judge"] = _make_agent(
-            JudgeAgent, "judge", va.judge, full_config,
-            renderer, _get_provider, limits,
+            JudgeAgent,
+            "judge",
+            va.judge,
+            full_config,
+            renderer,
+            _get_provider,
+            limits,
         )
 
     # ── Multi-agent fields (count-based) ─────────────────────────────────
@@ -163,30 +187,63 @@ def instantiate_agents(
     # reviewers (v2)
     if va.reviewers is not None:
         agents_map["reviewers"] = _make_agents_counted(
-            ReviewerAgent, "reviewer", va.reviewers, full_config,
-            renderer, _get_provider, limits,
+            ReviewerAgent,
+            "reviewer",
+            va.reviewers,
+            full_config,
+            renderer,
+            _get_provider,
+            limits,
         )
 
     # parallel_leaders (v3)
     if va.parallel_leaders is not None:
         agents_map["parallel_leaders"] = _make_agents_counted(
-            DesignerAgent, "designer", va.parallel_leaders, full_config,
-            renderer, _get_provider, limits,
+            DesignerAgent,
+            "designer",
+            va.parallel_leaders,
+            full_config,
+            renderer,
+            _get_provider,
+            limits,
         )
 
-    # participants (v6, v7)
-    if va.participants is not None:
-        agents_map["participants"] = _make_agents_counted(
-            DesignerAgent, "designer", va.participants, full_config,
-            renderer, _get_provider, limits,
-        )
+    # participants (v6, v7) — individually defined agents
+    if va.participants:
+        participant_agents: list[BaseAgent] = []
+        for agent_cfg in va.participants:
+            agent_id = agent_cfg.id or f"participant_{len(participant_agents)}"
+            participant_agents.append(
+                _make_agent(
+                    DesignerAgent,
+                    agent_id,
+                    agent_cfg,
+                    full_config,
+                    renderer,
+                    _get_provider,
+                    limits,
+                )
+            )
+        agents_map["participants"] = participant_agents
 
     # debaters (v8)
-    if va.debaters is not None:
-        agents_map["debaters"] = _make_agents_counted(
-            DesignerAgent, "debater", va.debaters, full_config,
-            renderer, _get_provider, limits,
-        )
+    if va.debaters:
+        debater_agents: list[BaseAgent] = []
+        for agent_cfg in va.debaters:
+            debater_agents.append(
+                _make_agent(
+                    DesignerAgent,
+                    agent_cfg.id or f"debater_{len(debater_agents)}",
+                    agent_cfg,
+                    full_config,
+                    renderer,
+                    _get_provider,
+                    limits,
+                )
+            )
+            # Store perspective on the agent instance
+            debater_agents[-1].perspective = agent_cfg.perspective
+        agents_map["debaters"] = debater_agents
 
     # ── Specialists (v5) — list of SpecialistConfig ──────────────────────
 
@@ -221,7 +278,13 @@ def instantiate_agents(
 
 
 def _make_agent(
-    cls, agent_id, agent_config, full_config, renderer, get_provider, limits,
+    cls,
+    agent_id,
+    agent_config,
+    full_config,
+    renderer,
+    get_provider,
+    limits,
 ):
     """Create a single agent instance from an AgentConfig."""
     model_cfg = full_config.get_model(agent_config.model)
@@ -232,13 +295,20 @@ def _make_agent(
         provider=get_provider(agent_config.model),
         renderer=renderer,
         prompt_template=agent_config.system_prompt_template,
+        application_prompt_template=agent_config.application_prompt_template,
         parameters=agent_config.parameters,
         limits=limits,
     )
 
 
 def _make_agents_counted(
-    cls, role, agent_config, full_config, renderer, get_provider, limits,
+    cls,
+    role,
+    agent_config,
+    full_config,
+    renderer,
+    get_provider,
+    limits,
 ):
     """Create a list of agents from a count-based AgentConfig."""
     model_cfg = full_config.get_model(agent_config.model)

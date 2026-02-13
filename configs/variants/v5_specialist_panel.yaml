@@ -10,8 +10,9 @@ variant:
   agents:
     leader:
       role: designer
-      model: gemini-3
+      model: vertex-gemini-2.5-pro
       system_prompt_template: generation/design_system.j2
+      application_prompt_template: generation/design_application.j2
       parameters:
         temperature: 0.7
         max_tokens: 16384
@@ -20,7 +21,7 @@ variant:
       - id: security_specialist
         role: specialist_reviewer
         specialty: security
-        model: gemini-3
+        model: gpt-oss-120b
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - security_design
@@ -28,7 +29,7 @@ variant:
       - id: scalability_specialist
         role: specialist_reviewer
         specialty: scalability
-        model: gemini-3
+        model: gpt-oss-120b
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - scalability_strategy
@@ -36,7 +37,7 @@ variant:
       - id: reliability_specialist
         role: specialist_reviewer
         specialty: reliability
-        model: gemini-3
+        model: gpt-oss-120b
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - trade_off_awareness

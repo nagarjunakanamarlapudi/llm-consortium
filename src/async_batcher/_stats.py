@@ -37,6 +37,25 @@ class BatcherStats:
     total_queue_wait_ms: float = 0.0
     """Cumulative time requests waited in the queue before being flushed (ms)."""
 
+    # ── Retry stats ──────────────────────────────────────────────────────
+
+    total_retries: int = 0
+    """Number of handler retries across all flushes."""
+
+    total_retry_successes: int = 0
+    """Flushes that failed initially but succeeded on retry."""
+
+    total_exhausted: int = 0
+    """Flushes where all retries were exhausted (permanent failure)."""
+
+    # ── Rate limiter stats ───────────────────────────────────────────────
+
+    total_rate_limit_waits: int = 0
+    """Number of times a flush had to wait for rate limit capacity."""
+
+    total_rate_limit_wait_ms: float = 0.0
+    """Cumulative time waiting for rate limiter capacity (ms)."""
+
     @property
     def avg_batch_size(self) -> float:
         """Average number of requests per handler call."""

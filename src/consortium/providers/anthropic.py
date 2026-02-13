@@ -12,17 +12,24 @@ from typing import Any
 import structlog
 from anthropic import AsyncAnthropic
 from anthropic.types import Message, MessageParam
-from tenacity import (
-    retry,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_exponential,
-)
+
 
 from consortium.config.models import ModelConfig
 from consortium.providers.base import LLMProvider, LLMRequest, LLMResponse
 
 logger = structlog.get_logger(__name__)
+
+
+def _parse_int_header(headers: object, name: str) -> int | None:
+    """Safely extract an integer header value, returning None on failure."""
+    val = getattr(headers, "get", lambda *_: None)(name)
+    if val is None:
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None
+
 
 _TOKENS_PER_MILLION = 1_000_000
 
@@ -32,9 +39,7 @@ _RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 529})
 # Batch terminal states.
 _BATCH_TERMINAL_STATES = frozenset({"ended", "canceled", "expired"})
 
-_MAX_RETRY_ATTEMPTS = 5
-_RETRY_MIN_WAIT_SECONDS = 1
-_RETRY_MAX_WAIT_SECONDS = 60
+
 _BATCH_POLL_INTERVAL_SECONDS = 30
 
 
@@ -66,16 +71,6 @@ class AnthropicProvider(LLMProvider):
 
     # ── Public interface ──────────────────────────────────────────────────────
 
-    @retry(
-        retry=retry_if_exception(_is_retryable),
-        stop=stop_after_attempt(_MAX_RETRY_ATTEMPTS),
-        wait=wait_exponential(
-            multiplier=1,
-            min=_RETRY_MIN_WAIT_SECONDS,
-            max=_RETRY_MAX_WAIT_SECONDS,
-        ),
-        reraise=True,
-    )
     async def complete(self, request: LLMRequest) -> LLMResponse:
         """Send a single real-time completion request via the Messages API."""
         messages = self._build_messages(request)
@@ -103,10 +98,21 @@ class AnthropicProvider(LLMProvider):
         elif params.get("top_p") is not None:
             create_kwargs["top_p"] = params["top_p"]
 
-        response: Message = await self._client.messages.create(**create_kwargs)
+        raw_response = await self._client.messages.with_raw_response.create(**create_kwargs)
         latency_ms = (time.perf_counter_ns() - start_ns) / 1_000_000
 
-        return self._message_to_response(response, latency_ms=latency_ms)
+        response: Message = raw_response.parse()
+
+        # Extract rate limit headers
+        rpm_limit = _parse_int_header(raw_response.headers, "anthropic-ratelimit-requests-limit")
+        tpm_limit = _parse_int_header(raw_response.headers, "anthropic-ratelimit-tokens-limit")
+
+        return self._message_to_response(
+            response,
+            latency_ms=latency_ms,
+            provider_rpm_limit=rpm_limit,
+            provider_tpm_limit=tpm_limit,
+        )
 
     async def complete_batch(self, requests: list[LLMRequest]) -> list[LLMResponse]:
         """Submit requests via the Anthropic Message Batches API.
@@ -256,6 +262,8 @@ class AnthropicProvider(LLMProvider):
         *,
         latency_ms: float,
         batch_id: str | None = None,
+        provider_rpm_limit: int | None = None,
+        provider_tpm_limit: int | None = None,
     ) -> LLMResponse:
         """Convert an Anthropic Message object into our canonical LLMResponse."""
         content_parts = [block.text for block in message.content if block.type == "text"]
@@ -283,6 +291,8 @@ class AnthropicProvider(LLMProvider):
             request_id=message.id,
             cached_input_tokens=cached_input_tokens,
             batch_id=batch_id,
+            provider_rpm_limit=provider_rpm_limit,
+            provider_tpm_limit=provider_tpm_limit,
         )
 
     def _compute_cost(

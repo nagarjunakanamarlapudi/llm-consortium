@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from async_batcher import BatcherGroup, BatcherStats
+from async_batcher import TokenBucketRateLimiter
 
 from consortium.providers.base import LLMProvider
 from consortium.providers.batching import BatchingProvider
@@ -15,6 +16,55 @@ if TYPE_CHECKING:
     from consortium.config.models import ModelConfig
 
 logger = structlog.get_logger()
+
+# ── Default retry settings ───────────────────────────────────────────────────
+_DEFAULT_MAX_RETRIES = 10
+_DEFAULT_RETRY_BACKOFF_BASE = 1.0
+
+
+def _retryable_exceptions_for(
+    provider: str,
+) -> tuple[type[BaseException], ...]:
+    """Return provider-specific retryable exception types.
+
+    These are added to the batcher's ``retryable_exceptions`` so that
+    429 / 5xx errors are retried with exponential backoff.
+    """
+    provider = provider.lower()
+
+    if provider in ("google", "google_vertex"):
+        try:
+            from google.genai import errors as genai_errors
+
+            return (
+                genai_errors.ClientError,
+                genai_errors.ServerError,
+                ConnectionError,
+                TimeoutError,
+            )
+        except ImportError:
+            pass
+
+    if provider == "openai":
+        try:
+            from openai import APIStatusError
+
+            return (APIStatusError, ConnectionError, TimeoutError)
+        except ImportError:
+            pass
+
+    if provider == "anthropic":
+        try:
+            from anthropic import APIStatusError as AnthropicAPIError
+
+            return (AnthropicAPIError, ConnectionError, TimeoutError)
+        except ImportError:
+            pass
+
+    if provider == "ollama":
+        return (ConnectionError, TimeoutError)
+
+    return (ConnectionError, TimeoutError)
 
 
 class ProviderRegistry:
@@ -55,11 +105,24 @@ class ProviderRegistry:
         inner = create_provider(model_config)
 
         if model_config.batching and model_config.batching.enabled:
+            # Build rate limiter from model config
+            rate_limiter = None
+            rl = model_config.rate_limits
+            if rl and (rl.requests_per_minute or rl.tokens_per_minute):
+                rate_limiter = TokenBucketRateLimiter(
+                    rl.requests_per_minute,
+                    rl.tokens_per_minute,
+                )
+
             wrapper = BatchingProvider(
                 inner,
                 window_ms=model_config.batching.window_ms,
                 max_batch_size=model_config.batching.max_batch_size,
                 name=key,
+                rate_limiter=rate_limiter,
+                max_retries=_DEFAULT_MAX_RETRIES,
+                retry_backoff_base=_DEFAULT_RETRY_BACKOFF_BASE,
+                retryable_exceptions=_retryable_exceptions_for(model_config.provider),
             )
             self._group.register(key, wrapper._batcher)
             self._providers[key] = wrapper
@@ -68,6 +131,9 @@ class ProviderRegistry:
                 provider=key,
                 window_ms=model_config.batching.window_ms,
                 max_batch_size=model_config.batching.max_batch_size,
+                rpm=rl.requests_per_minute if rl else None,
+                tpm=rl.tokens_per_minute if rl else None,
+                max_retries=_DEFAULT_MAX_RETRIES,
             )
         else:
             self._providers[key] = inner

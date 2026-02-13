@@ -33,6 +33,8 @@ class LLMResponse:
     cached_input_tokens: int = 0
     batch_id: str | None = None
     metadata: dict[str, str] = field(default_factory=dict)
+    provider_rpm_limit: int | None = None  # from response headers (OpenAI/Anthropic)
+    provider_tpm_limit: int | None = None  # from response headers (OpenAI/Anthropic)
 
 
 class LLMProvider(abc.ABC):
@@ -49,9 +51,7 @@ class LLMProvider(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def estimate_cost(
-        self, input_tokens: int, output_tokens: int, *, batch: bool = False
-    ) -> float:
+    def estimate_cost(self, input_tokens: int, output_tokens: int, *, batch: bool = False) -> float:
         """Estimate cost in USD for given token counts."""
         ...
 

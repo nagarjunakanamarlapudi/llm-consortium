@@ -31,44 +31,50 @@ class V8StructuredDebateOrchestrator(VariantOrchestrator):
         rubric_dims = context.rubric_dimensions
         rebuttal_template = self.config.workflow.rebuttal_template
 
-        # Assign perspectives to debaters
-        perspectives = ["performance-first", "simplicity-first", "resilience-first"]
-        while len(perspectives) < len(debaters):
-            perspectives.append(f"perspective-{len(perspectives) + 1}")
+        # Read perspectives from agent config; fall back to generic labels
+        perspectives = [d.perspective or f"perspective-{i + 1}" for i, d in enumerate(debaters)]
 
         # Round 0: position statements — use position_assignment template directly
         self._log.info("round_start", round=0, step="position", count=len(debaters))
-        designs = list(await asyncio.gather(*(
-            self._position_statement(
-                debater=debaters[i],
-                context=context,
-                task=task,
-                rubric_dims=rubric_dims,
-                perspective=perspectives[i],
+        designs = list(
+            await asyncio.gather(
+                *(
+                    self._position_statement(
+                        debater=debaters[i],
+                        context=context,
+                        task=task,
+                        rubric_dims=rubric_dims,
+                        perspective=perspectives[i],
+                    )
+                    for i in range(len(debaters))
+                )
             )
-            for i in range(len(debaters))
-        )))
+        )
 
         # Rebuttal rounds
         max_rebuttal_rounds = max(self.config.workflow.max_rounds - 1, 1)
         for round_num in range(1, max_rebuttal_rounds):
             self._log.info("round_start", round=round_num, step="rebuttal")
 
-            new_designs = list(await asyncio.gather(*(
-                self._rebuttal(
-                    debater=debaters[i],
-                    context=context,
-                    round_num=round_num,
-                    task=task,
-                    own_design=designs[i],
-                    other_designs=[d for j, d in enumerate(designs) if j != i],
-                    other_perspectives=[p for j, p in enumerate(perspectives) if j != i],
-                    rubric_dims=rubric_dims,
-                    perspective=perspectives[i],
-                    rebuttal_template=rebuttal_template,
+            new_designs = list(
+                await asyncio.gather(
+                    *(
+                        self._rebuttal(
+                            debater=debaters[i],
+                            context=context,
+                            round_num=round_num,
+                            task=task,
+                            own_design=designs[i],
+                            other_designs=[d for j, d in enumerate(designs) if j != i],
+                            other_perspectives=[p for j, p in enumerate(perspectives) if j != i],
+                            rubric_dims=rubric_dims,
+                            perspective=perspectives[i],
+                            rebuttal_template=rebuttal_template,
+                        )
+                        for i in range(len(debaters))
+                    )
                 )
-                for i in range(len(debaters))
-            )))
+            )
 
             designs = new_designs
 
@@ -115,9 +121,7 @@ class V8StructuredDebateOrchestrator(VariantOrchestrator):
             "perspective": perspective,
             "hard_constraints": task.variables.hard_constraints,
             "use_cases": task.variables.use_cases,
-            "rubric_dimensions": (
-                [d.model_dump() for d in rubric_dims] if rubric_dims else None
-            ),
+            "rubric_dimensions": ([d.model_dump() for d in rubric_dims] if rubric_dims else None),
         }
 
         response = await debater._call_llm(
@@ -190,9 +194,7 @@ class V8StructuredDebateOrchestrator(VariantOrchestrator):
             "other_positions": other_positions,
             "system_name": task.variables.system_name,
             "complexity": task.complexity,
-            "rubric_dimensions": (
-                [d.model_dump() for d in rubric_dims] if rubric_dims else None
-            ),
+            "rubric_dimensions": ([d.model_dump() for d in rubric_dims] if rubric_dims else None),
         }
 
         response = await debater._call_llm(

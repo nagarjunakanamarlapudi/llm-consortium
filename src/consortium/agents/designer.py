@@ -55,22 +55,22 @@ class DesignerAgent(BaseAgent):
             "complexity": task.complexity,
             "design_type": task.design_type,
             "rubric_dimensions": (
-                [d.model_dump() for d in rubric_dimensions]
-                if rubric_dimensions
-                else None
+                [d.model_dump() for d in rubric_dimensions] if rubric_dimensions else None
             ),
-            "review_feedback": (
-                [r.review_text for r in reviews] if reviews else None
-            ),
-            "previous_design": (
-                previous_design.full_text if previous_design else None
-            ),
+            "review_feedback": ([r.review_text for r in reviews] if reviews else None),
+            "previous_design": (previous_design.full_text if previous_design else None),
             "perspective": perspective,
         }
 
         step = "revision" if previous_design else "generation"
+
+        # Pick template based on task design type
+        template = self.prompt_template
+        if task.design_type == "application" and self.application_prompt_template:
+            template = self.application_prompt_template
+
         response = await self._call_llm(
-            template=self.prompt_template,
+            template=template,
             template_vars=template_vars,
             context=context,
             step=step,

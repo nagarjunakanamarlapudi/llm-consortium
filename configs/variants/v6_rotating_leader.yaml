@@ -9,20 +9,40 @@ variant:
   sub_variant: null
   agents:
     participants:
-      role: designer
-      model: gemini-3
-      system_prompt_template: generation/design_system.j2
-      parameters:
-        temperature: 0.7
-        max_tokens: 16384
-        top_p: 1.0
-      count: 3
+      - id: participant_1
+        role: designer
+        model: vertex-gemini-2.5-pro
+        system_prompt_template: generation/design_system.j2
+        application_prompt_template: generation/design_application.j2
+        parameters:
+          temperature: 0.7
+          max_tokens: 16384
+          top_p: 1.0
+      - id: participant_2
+        role: designer
+        model: gpt-oss-120b
+        system_prompt_template: generation/design_system.j2
+        application_prompt_template: generation/design_application.j2
+        parameters:
+          temperature: 0.7
+          max_tokens: 16384
+          top_p: 1.0
+      - id: participant_3
+        role: designer
+        model: vertex-gemini-2.5-pro
+        system_prompt_template: generation/design_system.j2
+        application_prompt_template: generation/design_application.j2
+        parameters:
+          temperature: 0.7
+          max_tokens: 16384
+          top_p: 1.0
+
   workflow:
     max_rounds: 3
     rotation_order:
-      - designer_0
-      - designer_1
-      - designer_2
+      - participant_1
+      - participant_2
+      - participant_3
     review_template: review/general_review.j2
   token_budget:
     estimated_input: 100000

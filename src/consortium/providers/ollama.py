@@ -9,12 +9,7 @@ from datetime import UTC, datetime
 
 import structlog
 from openai import AsyncOpenAI
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+
 
 from consortium.config.models import ModelConfig, OllamaConfig
 from consortium.providers.base import LLMProvider, LLMRequest, LLMResponse
@@ -37,12 +32,6 @@ class OllamaProvider(LLMProvider):
 
     # ── public interface ────────────────────────────────────────────────
 
-    @retry(
-        retry=retry_if_exception_type(Exception),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=0.5, min=0.5, max=10),
-        reraise=True,
-    )
     async def complete(self, request: LLMRequest) -> LLMResponse:
         """Send a single real-time completion request to Ollama."""
         log = logger.bind(
@@ -122,9 +111,7 @@ class OllamaProvider(LLMProvider):
 
         return list(results)
 
-    def estimate_cost(
-        self, input_tokens: int, output_tokens: int, *, batch: bool = False
-    ) -> float:
+    def estimate_cost(self, input_tokens: int, output_tokens: int, *, batch: bool = False) -> float:
         """Local inference is always free."""
         return 0.0
 
@@ -134,9 +121,7 @@ class OllamaProvider(LLMProvider):
 
     # ── private helpers ─────────────────────────────────────────────────
 
-    def _build_messages(
-        self, request: LLMRequest
-    ) -> list[dict[str, str]]:
+    def _build_messages(self, request: LLMRequest) -> list[dict[str, str]]:
         """Prepend system prompt to the conversation messages."""
         messages: list[dict[str, str]] = []
         if request.system_prompt:

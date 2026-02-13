@@ -6,6 +6,7 @@ import threading
 
 import structlog
 from async_batcher import Batcher, BatcherStats
+from async_batcher import TokenBucketRateLimiter
 
 from consortium.providers.base import LLMProvider, LLMRequest, LLMResponse
 
@@ -34,17 +35,26 @@ class BatchingProvider(LLMProvider):
         window_ms: float = 100.0,
         max_batch_size: int = 64,
         name: str = "",
+        rate_limiter: object | None = None,
+        max_retries: int = 0,
+        retry_backoff_base: float = 1.0,
+        retryable_exceptions: tuple[type[BaseException], ...] | None = None,
     ) -> None:
         self._inner = inner
         self._name = name
         self._cost_lock = threading.Lock()
         self._total_cost = 0.0
+        self._limits_synced = False
         self._batcher: Batcher[LLMRequest, LLMResponse] = Batcher(
             handler=inner.complete_batch,
             window_ms=window_ms,
             max_batch_size=max_batch_size,
             name=name,
             on_flush=self._on_flush,
+            rate_limiter=rate_limiter,
+            max_retries=max_retries,
+            retry_backoff_base=retry_backoff_base,
+            retryable_exceptions=retryable_exceptions,
         )
 
     def _on_flush(self, batch_size: int, handler_ms: float, queue_remaining: int) -> None:
@@ -58,12 +68,40 @@ class BatchingProvider(LLMProvider):
             total_requests=self._batcher.stats.total_requests,
         )
 
+    async def _maybe_update_rate_limits(self, responses: list[LLMResponse]) -> None:
+        """Update rate limiter if any response contains provider-reported limits.
+
+        Only updates once (first response with headers wins). Subsequent
+        calls are no-ops after ``_limits_synced`` is set.
+        """
+        if self._limits_synced:
+            return
+        rl = self._batcher._rate_limiter
+        if not isinstance(rl, TokenBucketRateLimiter):
+            return
+
+        for resp in responses:
+            if resp.provider_rpm_limit is not None or resp.provider_tpm_limit is not None:
+                await rl.update_limits(
+                    rpm=resp.provider_rpm_limit or 0,
+                    tpm=resp.provider_tpm_limit or 0,
+                )
+                self._limits_synced = True
+                logger.info(
+                    "rate_limits.auto_detected",
+                    provider=self._name,
+                    rpm=resp.provider_rpm_limit,
+                    tpm=resp.provider_tpm_limit,
+                )
+                return
+
     # ── LLMProvider interface ──────────────────────────────────────────
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         """Submit a single request via the batcher (transparently batched)."""
         resp = await self._batcher.submit(request)
         self._accumulate_cost(resp.cost_usd)
+        await self._maybe_update_rate_limits([resp])
         return resp
 
     async def complete_batch(self, requests: list[LLMRequest]) -> list[LLMResponse]:
@@ -71,6 +109,7 @@ class BatchingProvider(LLMProvider):
         resps = await self._batcher.submit_many(requests)
         total = sum(r.cost_usd for r in resps)
         self._accumulate_cost(total)
+        await self._maybe_update_rate_limits(resps)
         return resps
 
     def _accumulate_cost(self, cost: float) -> None:

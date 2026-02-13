@@ -1,5 +1,5 @@
 model:
-  id: "vertex-gemini-3"
+  id: "vertex-gemini-2.5-pro"
   provider: "google_vertex"
   api_model: "gemini-2.5-pro"
 
@@ -20,9 +20,11 @@ model:
 
   batching:
     enabled: true
-    window_ms: 5000
-    max_batch_size: 10
+    window_ms: 20000       # 20s window — serialize requests for low RPM
+    max_batch_size: 1      # one at a time to stay within RPM=5 quota
 
   rate_limits:
-    requests_per_minute: 10
+    # Ultra-conservative: SDK has internal retry that multiplies quota usage
+    # RPM=1 ensures even with SDK's ~3x internal retry, we stay under quota
+    requests_per_minute: 2
     tokens_per_minute: 1000000

@@ -10,8 +10,9 @@ variant:
   agents:
     parallel_leaders:
       role: designer
-      model: gemini-3
+      model: vertex-gemini-2.5-pro
       system_prompt_template: generation/design_system.j2
+      application_prompt_template: generation/design_application.j2
       parameters:
         temperature: 0.9
         max_tokens: 16384
@@ -26,7 +27,7 @@ variant:
           - resilience
     merger:
       role: merger
-      model: gemini-3
+      model: vertex-gemini-2.5-pro
       system_prompt_template: synthesis/merge_rubric_guided.j2
       parameters:
         temperature: 0.3

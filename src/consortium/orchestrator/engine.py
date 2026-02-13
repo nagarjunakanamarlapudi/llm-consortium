@@ -111,6 +111,11 @@ class OrchestratorEngine:
         if force and existing_run_id:
             self._delete_run(existing_run_id)
 
+        # When resuming a failed/running run, delete old data to avoid
+        # FK constraint violations from INSERT OR REPLACE on the runs table.
+        if resume and existing_run_id and existing_status in ("running", "failed"):
+            self._delete_run(existing_run_id)
+
         # Generate unique run ID
         timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         run_id = f"{variant_id}-{task_id}-rep{repetition}-{timestamp}"
@@ -143,11 +148,14 @@ class OrchestratorEngine:
             # Build provider factory from registry if available
             provider_factory = None
             if self._registry is not None:
+
                 def _make_factory(reg):
                     def _factory(model_id: str):
                         mc = self.config.get_model(model_id)
                         return reg.get(mc)
+
                     return _factory
+
                 provider_factory = _make_factory(self._registry)
 
             # Instantiate agents
@@ -393,10 +401,11 @@ class ExperimentRunner:
         config: FullConfig,
         database: Database,
         prompts_dir: str | Path,
+        registry: object | None = None,
     ) -> None:
         self.config = config
         self.database = database
-        self.engine = OrchestratorEngine(config, database, prompts_dir)
+        self.engine = OrchestratorEngine(config, database, prompts_dir, registry=registry)
 
     def _get_completed_runs(self) -> set[tuple[str, str, int]]:
         """Get set of (variant_id, task_id, repetition) for completed runs."""

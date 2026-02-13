@@ -146,9 +146,7 @@ class BatchCollector:
             else:
                 # Fallback: run as parallel individual calls
                 g_log.info("batch_fallback_parallel")
-                tasks = [
-                    self._complete_single(pending) for pending in group
-                ]
+                tasks = [self._complete_single(pending) for pending in group]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 for pending, result in zip(group, results):
                     if isinstance(result, Exception):
@@ -187,11 +185,13 @@ class BatchExperimentRunner:
         config: FullConfig,
         database: Database,
         prompts_dir: str,
+        registry: object | None = None,
     ) -> None:
         self.config = config
         self.database = database
         self.prompts_dir = prompts_dir
         self.collector = BatchCollector()
+        self._registry = registry
 
         # Pre-create providers (one per model config, shared)
         self._providers: dict[str, LLMProvider] = {}
@@ -199,8 +199,12 @@ class BatchExperimentRunner:
     def get_provider(self, model_id: str) -> LLMProvider:
         """Get or create a provider for a model config (cached)."""
         if model_id not in self._providers:
-            model_config = self.config.get_model(model_id)
-            self._providers[model_id] = create_provider(model_config)
+            if self._registry is not None:
+                model_config = self.config.get_model(model_id)
+                self._providers[model_id] = self._registry.get(model_config)
+            else:
+                model_config = self.config.get_model(model_id)
+                self._providers[model_id] = create_provider(model_config)
         return self._providers[model_id]
 
     async def run_batch_experiment(
@@ -224,19 +228,14 @@ class BatchExperimentRunner:
         reps = repetitions or self.config.experiment.repetitions
 
         run_matrix = [
-            (vid, tid, rep)
-            for vid in variant_ids
-            for tid in task_ids
-            for rep in range(reps)
+            (vid, tid, rep) for vid in variant_ids for tid in task_ids for rep in range(reps)
         ]
 
         # Check which are already done
         completed_rows = self.database.conn.execute(
             "SELECT variant_id, task_id, repetition FROM runs WHERE status = 'completed'"
         ).fetchall()
-        completed = {
-            (r["variant_id"], r["task_id"], r["repetition"]) for r in completed_rows
-        }
+        completed = {(r["variant_id"], r["task_id"], r["repetition"]) for r in completed_rows}
         pending = [r for r in run_matrix if r not in completed]
 
         log = logger.bind(
@@ -264,12 +263,12 @@ class BatchExperimentRunner:
 
         from consortium.orchestrator.engine import OrchestratorEngine
 
-        engine = OrchestratorEngine(self.config, self.database, self.prompts_dir)
+        engine = OrchestratorEngine(
+            self.config, self.database, self.prompts_dir, registry=self._registry
+        )
 
         # Run with limited concurrency
-        semaphore = asyncio.Semaphore(
-            self.config.experiment.limits.max_concurrent_runs
-        )
+        semaphore = asyncio.Semaphore(self.config.experiment.limits.max_concurrent_runs)
 
         stats = {"submitted": len(pending), "completed": 0, "failed": 0}
 
@@ -282,9 +281,7 @@ class BatchExperimentRunner:
                     stats["failed"] += 1
                     logger.error("batch_run_failed", variant=vid, task=tid, rep=rep, error=str(e))
 
-        await asyncio.gather(
-            *[_run_one(vid, tid, rep) for vid, tid, rep in pending]
-        )
+        await asyncio.gather(*[_run_one(vid, tid, rep) for vid, tid, rep in pending])
 
         log.info("batch_experiment_complete", **stats)
         return {

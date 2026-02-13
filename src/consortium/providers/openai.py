@@ -10,20 +10,25 @@ import uuid
 from datetime import UTC, datetime
 
 import structlog
-from openai import AsyncOpenAI, APIConnectionError, APITimeoutError, RateLimitError
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+from openai import AsyncOpenAI
+
 
 from consortium.config.models import ModelConfig
 from consortium.providers.base import LLMProvider, LLMRequest, LLMResponse
 
 logger = structlog.get_logger(__name__)
 
-_RETRYABLE_EXCEPTIONS = (APIConnectionError, APITimeoutError, RateLimitError)
+
+def _parse_int_header(headers: object, name: str) -> int | None:
+    """Safely extract an integer header value, returning None on failure."""
+    val = getattr(headers, "get", lambda *_: None)(name)
+    if val is None:
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None
+
 
 _BATCH_TERMINAL_STATES = frozenset({"completed", "failed", "expired", "cancelled"})
 _BATCH_POLL_INTERVAL_S = 30.0
@@ -45,8 +50,8 @@ class OpenAIProvider(LLMProvider):
     # ── public interface ─────────────────────────────────────────────────
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
-        """Send a single real-time Chat Completion request with retries."""
-        return await self._complete_with_retry(request)
+        """Send a single real-time Chat Completion request."""
+        return await self._complete_impl(request)
 
     async def complete_batch(self, requests: list[LLMRequest]) -> list[LLMResponse]:
         """Submit requests via the OpenAI Batch API, poll until done, and
@@ -151,9 +156,7 @@ class OpenAIProvider(LLMProvider):
             usage = body.get("usage", {})
             input_tokens = usage.get("prompt_tokens", 0)
             output_tokens = usage.get("completion_tokens", 0)
-            cached_input_tokens = usage.get("prompt_tokens_details", {}).get(
-                "cached_tokens", 0
-            )
+            cached_input_tokens = usage.get("prompt_tokens_details", {}).get("cached_tokens", 0)
 
             responses[idx] = LLMResponse(
                 content=choice["message"]["content"],
@@ -182,9 +185,7 @@ class OpenAIProvider(LLMProvider):
 
         return responses  # type: ignore[return-value]
 
-    def estimate_cost(
-        self, input_tokens: int, output_tokens: int, *, batch: bool = False
-    ) -> float:
+    def estimate_cost(self, input_tokens: int, output_tokens: int, *, batch: bool = False) -> float:
         return self._compute_cost(input_tokens, output_tokens, batch=batch)
 
     def supports_batch(self) -> bool:  # noqa: PLR6301
@@ -212,14 +213,8 @@ class OpenAIProvider(LLMProvider):
             **merged_params,
         }
 
-    @retry(
-        retry=retry_if_exception_type(_RETRYABLE_EXCEPTIONS),
-        wait=wait_exponential(multiplier=1, min=1, max=60),
-        stop=stop_after_attempt(5),
-        reraise=True,
-    )
-    async def _complete_with_retry(self, request: LLMRequest) -> LLMResponse:
-        """Execute a single Chat Completion call with tenacity retries."""
+    async def _complete_impl(self, request: LLMRequest) -> LLMResponse:
+        """Execute a single Chat Completion call."""
         log = logger.bind(
             model=self._config.api_model,
             config_id=request.model_config_id,
@@ -239,13 +234,14 @@ class OpenAIProvider(LLMProvider):
         messages.extend(request.messages)
 
         t0 = time.perf_counter()
-        response = await self._client.chat.completions.create(
+        raw_response = await self._client.chat.completions.with_raw_response.create(
             model=self._config.api_model,
             messages=messages,  # type: ignore[arg-type]
             **merged_params,
         )
         latency_ms = (time.perf_counter() - t0) * 1_000
 
+        response = raw_response.parse()
         choice = response.choices[0]
         usage = response.usage
 
@@ -253,15 +249,17 @@ class OpenAIProvider(LLMProvider):
         output_tokens = usage.completion_tokens if usage else 0
         cached_input_tokens = 0
         if usage and hasattr(usage, "prompt_tokens_details") and usage.prompt_tokens_details:
-            cached_input_tokens = getattr(
-                usage.prompt_tokens_details, "cached_tokens", 0
-            ) or 0
+            cached_input_tokens = getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0
 
         cost = self._compute_cost(
             input_tokens,
             output_tokens,
             cached_input_tokens=cached_input_tokens,
         )
+
+        # Extract rate limit headers
+        rpm_limit = _parse_int_header(raw_response.headers, "x-ratelimit-limit-requests")
+        tpm_limit = _parse_int_header(raw_response.headers, "x-ratelimit-limit-tokens")
 
         log.info(
             "openai.request_complete",
@@ -283,6 +281,8 @@ class OpenAIProvider(LLMProvider):
             request_id=response.id,
             cached_input_tokens=cached_input_tokens,
             metadata=request.metadata,
+            provider_rpm_limit=rpm_limit,
+            provider_tpm_limit=tpm_limit,
         )
 
     def _compute_cost(

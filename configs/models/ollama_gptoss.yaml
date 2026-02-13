@@ -5,8 +5,8 @@ model:
 
   ollama:
     host: "${OLLAMA_HOST:-http://localhost:11434}"
-    concurrency: 10
-    keep_alive: "60m"
+    concurrency: 2
+    keep_alive: "90m"
 
   pricing:
     input: 0.00

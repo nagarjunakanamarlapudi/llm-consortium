@@ -12,25 +12,13 @@ import structlog
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
-from tenacity import (
-    retry,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_exponential_jitter,
-)
+
 
 from consortium.config.models import ModelConfig
 
 from .base import LLMProvider, LLMRequest, LLMResponse
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
-
-# ── Retry helpers ────────────────────────────────────────────────────────────
-
-_MAX_ATTEMPTS = 6
-_WAIT_MIN_SECONDS = 1
-_WAIT_MAX_SECONDS = 60
-_WAIT_JITTER_SECONDS = 2
 
 
 def _is_retryable(exc: BaseException) -> bool:
@@ -103,7 +91,7 @@ class GoogleProvider(LLMProvider):
         batch_id = uuid.uuid4().hex
         for idx, result in enumerate(results):
             if isinstance(result, BaseException):
-                log.error(
+                log.warning(
                     "google.batch_item_failed",
                     index=idx,
                     error=str(result),
@@ -147,18 +135,8 @@ class GoogleProvider(LLMProvider):
 
     # ── Internal ─────────────────────────────────────────────────────────
 
-    @retry(
-        retry=retry_if_exception(_is_retryable),
-        stop=stop_after_attempt(_MAX_ATTEMPTS),
-        wait=wait_exponential_jitter(
-            initial=_WAIT_MIN_SECONDS,
-            max=_WAIT_MAX_SECONDS,
-            jitter=_WAIT_JITTER_SECONDS,
-        ),
-        reraise=True,
-    )
     async def _call(self, request: LLMRequest) -> LLMResponse:
-        """Low-level call with retry logic."""
+        """Low-level call to Google Gemini API."""
         log = logger.bind(
             model=self._config.api_model,
             config_id=request.model_config_id,

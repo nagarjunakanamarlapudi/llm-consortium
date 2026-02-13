@@ -71,7 +71,48 @@ def load_variant_config(path: Path) -> VariantConfig:
     """Load a variant config from a YAML file."""
     data = load_yaml(path)
     variant_data = data.get("variant", data)
+    _normalize_named_agents(variant_data)
     return VariantConfig(**variant_data)
+
+
+def _normalize_named_agents(variant_data: dict) -> None:
+    """Convert named ``participant_N`` / ``debater_N`` keys into lists.
+
+    This allows YAML authors to write individually-named agent
+    blocks (each with a different model) while producing the
+    ``list[AgentConfig]`` structure that Pydantic expects.
+    """
+    agents = variant_data.get("agents")
+    if not isinstance(agents, dict):
+        return
+
+    # --- participants ---
+    if "participants" not in agents:
+        named: dict[str, dict] = {}
+        for key in list(agents.keys()):
+            if key.startswith("participant_"):
+                named[key] = agents.pop(key)
+        if named:
+            participants_list = []
+            for key in sorted(named.keys()):
+                entry = named[key]
+                entry.setdefault("id", key)
+                participants_list.append(entry)
+            agents["participants"] = participants_list
+
+    # --- debaters ---
+    if "debaters" not in agents:
+        named_d: dict[str, dict] = {}
+        for key in list(agents.keys()):
+            if key.startswith("debater_"):
+                named_d[key] = agents.pop(key)
+        if named_d:
+            debaters_list = []
+            for key in sorted(named_d.keys()):
+                entry = named_d[key]
+                entry.setdefault("id", key)
+                debaters_list.append(entry)
+            agents["debaters"] = debaters_list
 
 
 def load_task_config(path: Path) -> TaskConfig:

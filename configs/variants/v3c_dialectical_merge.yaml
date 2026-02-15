@@ -1,0 +1,11 @@
+variant:
+  extends: v3_parallel_merge.yaml
+  id: v3c
+  name: "Parallel Leaders + Dialectical Merge"
+  description: "Multiple leaders independently generate designs, then a merger agent synthesizes them using a dialectical approach that treats designs as thesis/antithesis and produces a synthesis resolving conflicts."
+  sub_variant: dialectical_merge
+  agents:
+    merger:
+      system_prompt_template: synthesis/merge_dialectical.j2
+  workflow:
+    merge_strategy: dialectical

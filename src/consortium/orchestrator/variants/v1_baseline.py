@@ -22,6 +22,18 @@ class V1BaselineOrchestrator(VariantOrchestrator):
         designer = self._get_agent("designer")
         rubric_dims = context.rubric_dimensions
 
+        # Round 0: initial generation
+        self._log.info("round_start", round=0, step="generation")
+        design = await designer.act(
+            context=context, round_num=0, task=task, rubric_dimensions=rubric_dims,
+        )
+
+        # Single-shot mode (v1a): skip all refinement when max_rounds == 0
+        if self.config.workflow.max_rounds == 0:
+            design.is_final = True
+            self._log.info("complete_single_shot", design_id=design.design_id)
+            return design
+
         # Build a self-reviewer using the same model as the designer.
         # v1 is a single-agent baseline: the same LLM reviews its own work.
         self_reviewer = ReviewerAgent(
@@ -33,12 +45,6 @@ class V1BaselineOrchestrator(VariantOrchestrator):
             prompt_template="review/general_review.j2",
             parameters=designer.parameters,
             limits=designer.limits,
-        )
-
-        # Round 0: initial generation
-        self._log.info("round_start", round=0, step="generation")
-        design = await designer.act(
-            context=context, round_num=0, task=task, rubric_dimensions=rubric_dims,
         )
 
         # Self-refinement rounds: review → revise

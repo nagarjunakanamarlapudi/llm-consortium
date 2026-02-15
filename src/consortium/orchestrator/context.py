@@ -126,6 +126,9 @@ class RunContext:
     status: str = "pending"  # "pending", "running", "completed", "failed", "aborted"
     error: str | None = None
 
+    # Extensible metadata (variant-specific info for traces/analysis)
+    metadata: dict[str, str] = field(default_factory=dict)
+
     # Checkpoint (for resume after crash)
     checkpoint_step: str | None = None  # e.g. "round:2:review"
     checkpoint_data: str | None = None  # JSON-serialized state for resume
@@ -163,3 +166,14 @@ class RunContext:
     def get_reviews_for_round(self, round_num: int) -> list[ReviewArtifact]:
         """Get all reviews for a specific round."""
         return [r for r in self.reviews if r.round == round_num]
+
+    def compute_seed(self, agent_id: str, round_num: int) -> int:
+        """Compute a deterministic seed for an LLM call.
+
+        Combines the run_id, agent_id, and round number via hashing
+        to produce a reproducible seed unique to each call.
+        """
+        import hashlib
+
+        combined = f"{self.run_id}_{agent_id}_{round_num}"
+        return int(hashlib.md5(combined.encode()).hexdigest(), 16) % (2**31)

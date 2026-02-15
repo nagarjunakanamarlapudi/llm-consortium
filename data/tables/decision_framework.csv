@@ -1,4 +1,0 @@
-complexity,budget_priority,quality_priority,recommended_variant,quality_iqr_low,quality_iqr_high,cost_iqr_low,cost_iqr_high,coherence_rate,coherence_warning,confidence,evidence
-all,low,high,v8,4.125,4.3,0.1423525,0.148390625,0.6916666666666667,Low coherence (69%),high,"Based on 10 runs, p=0.0020"
-all,moderate,maximum,v2,4.5,4.5,0.250516455,0.26541562500000004,0.8,,low,"Based on 10 runs, p=0.9453"
-all,any,maximum,v2,4.5,4.5,0.250516455,0.26541562500000004,0.8,,low,"Based on 10 runs, p=0.9453"

@@ -207,11 +207,17 @@ class OpenAIProvider(LLMProvider):
             messages.append({"role": "system", "content": request.system_prompt})
         messages.extend(request.messages)
 
-        return {
+        body = {
             "model": self._config.api_model,
             "messages": messages,
             **merged_params,
         }
+
+        # Pass seed for reproducibility if provided
+        if request.seed is not None:
+            body["seed"] = request.seed
+
+        return body
 
     async def _complete_impl(self, request: LLMRequest) -> LLMResponse:
         """Execute a single Chat Completion call."""
@@ -227,6 +233,10 @@ class OpenAIProvider(LLMProvider):
             "top_p": self._config.parameters.top_p,
             **request.parameters,
         }
+
+        # Pass seed for reproducibility if provided
+        if request.seed is not None:
+            merged_params["seed"] = request.seed
 
         messages: list[dict[str, str]] = []
         if request.system_prompt:

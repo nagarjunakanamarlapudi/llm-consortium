@@ -1,0 +1,41 @@
+task:
+  id: "t3"
+  name: "Multi-Channel Notification System"
+  complexity: "medium"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "Multi-Channel Notification System"
+    problem_statement: |
+      Design a scalable multi-channel notification system that delivers messages across
+      email, SMS, push notifications, in-app messages, and webhooks. The system must
+      support event-driven triggering from upstream services, template-based message
+      rendering with per-user personalization, and intelligent channel routing based
+      on user preferences, delivery urgency, and channel availability. It must guarantee
+      at-least-once delivery with deduplication to prevent duplicate notifications.
+      The system must handle preference management allowing users to opt in/out per
+      channel and per notification category, with mandatory override capability for
+      critical system alerts. It must support batching and digest functionality to
+      avoid notification fatigue, scheduled delivery windows respecting user time zones,
+      and real-time delivery status tracking with retry logic per channel. The platform
+      must process at least 1 million notifications per hour during peak load with
+      graceful degradation when individual channel providers experience outages.
+    hard_constraints:
+      - "Support five delivery channels: email, SMS, push notification, in-app, and webhook"
+      - "At-least-once delivery guarantee with idempotent processing and deduplication"
+      - "Process at least 1 million notifications per hour during peak load"
+      - "User preference management with per-channel, per-category opt-in/opt-out"
+      - "End-to-end delivery latency under 30 seconds for urgent notifications"
+      - "Mandatory notification override for critical system alerts regardless of user preferences"
+    use_cases:
+      - "Send a transactional email confirmation when a user completes a purchase"
+      - "Deliver a push notification for a time-sensitive security alert (2FA code, password reset)"
+      - "Batch low-priority marketing notifications into a daily digest email"
+      - "Route notifications through fallback channels when the primary channel fails"
+      - "Allow users to configure quiet hours and timezone-aware delivery windows"
+      - "Track delivery status across all channels with real-time dashboards and alerting on failures"
+    complexity_drivers:
+      - "Multi-channel orchestration with heterogeneous delivery latencies and failure modes"
+      - "Event-driven architecture requiring reliable message processing with backpressure"
+      - "Preference routing logic that must handle complex rule hierarchies without performance degradation"

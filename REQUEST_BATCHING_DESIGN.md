@@ -239,7 +239,7 @@ batching:
   window_ms: 150       # GPU coalescing — wait longer to collect more
   max_batch_size: 64   # GPU can handle many concurrent
 ollama:
-  host: http://localhost:11434
+  host: http://nagarjunas-Mac-Studio.local:11434
   concurrency: 64      # Must match max_batch_size for full GPU utilization
   keep_alive: 30m
 ```

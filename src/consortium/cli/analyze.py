@@ -43,6 +43,15 @@ def _load(config_dir: Path, database: Path):
     return config, db
 
 
+def _active_variant_ids(config: FullConfig) -> list[str]:
+    """Return variant IDs listed in experiment.yaml (after ID normalisation).
+
+    This ensures that only the variants the user intends to analyse are
+    loaded from the database, excluding historical/parent/template variants.
+    """
+    return sorted(config.variants.keys())
+
+
 @app.command()
 def doctor(
     config_dir: Path = typer.Option(_DEFAULT_CONFIGS, "--configs", "-c"),
@@ -111,10 +120,11 @@ def ranking(
     from consortium.analysis.loader import load_scores_dataframe
     from consortium.analysis.statistics import rank_variants_overall
 
-    _, db = _load(config_dir, database)
+    config, db = _load(config_dir, database)
+    active = _active_variant_ids(config)
 
     try:
-        scores_df = load_scores_dataframe(db)
+        scores_df = load_scores_dataframe(db, variant_ids=active)
         result = rank_variants_overall(scores_df)
 
         if result is None:

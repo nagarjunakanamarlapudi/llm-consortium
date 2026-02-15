@@ -43,8 +43,16 @@ class V3ParallelMergeOrchestrator(VariantOrchestrator):
             for i, leader in enumerate(parallel_leaders)
         )))
 
-        # Round 1: merge
-        self._log.info("round_start", round=1, step="merge")
+        # Round 1: merge using configured strategy
+        merge_strategy = self.config.workflow.merge_strategy or "unknown"
+        self._log.info(
+            "round_start",
+            round=1,
+            step="merge",
+            merge_strategy=merge_strategy,
+            merge_template=self.config.agents.merger.system_prompt_template if self.config.agents.merger else "default",
+        )
+        context.metadata["merge_strategy"] = merge_strategy
         merged = await merger.act(
             context=context,
             round_num=1,

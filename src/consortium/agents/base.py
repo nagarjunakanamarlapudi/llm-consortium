@@ -87,6 +87,9 @@ class BaseAgent(abc.ABC):
         # Render prompt content from template
         prompt_content = self.renderer.render(template, **template_vars)
 
+        # Compute deterministic seed for reproducibility
+        seed = context.compute_seed(self.agent_id, round_num)
+
         request = LLMRequest(
             system_prompt="",
             messages=[{"role": "user", "content": prompt_content}],
@@ -102,6 +105,7 @@ class BaseAgent(abc.ABC):
                 "step": step,
                 "round": str(round_num),
             },
+            seed=seed,
         )
 
         self._log.debug("calling_llm", step=step, round=round_num, template=template)

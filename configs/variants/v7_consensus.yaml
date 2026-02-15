@@ -41,6 +41,7 @@ variant:
   workflow:
     max_rounds: 5
     convergence_template: synthesis/consensus_synthesis.j2
+    convergence_epsilon: 0.3
   token_budget:
     estimated_input: 150000
     estimated_output: 90000

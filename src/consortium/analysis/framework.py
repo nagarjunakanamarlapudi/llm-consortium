@@ -60,15 +60,23 @@ class PredictionResult:
 # ── Prediction definitions ───────────────────────────────────────────────────
 
 PREDICTIONS = {
-    "P1": "v1 matches consortium quality on simple tasks",
-    "P2": "v3 achieves highest peak quality on complex tasks",
-    "P3": "v7 has lowest variance across repetitions",
-    "P4": "v4 has highest variance across repetitions",
-    "P5": "v5 outperforms v2 on specialist dimensions (security, scalability)",
+    "P1": "v1_baseline matches consortium quality on simple tasks",
+    "P2": "v3 sub-variants achieve highest peak quality on complex tasks",
+    "P3": "v7_consensus has lowest variance across repetitions",
+    "P4": "v4_adversarial has highest variance across repetitions",
+    "P5": "v5_specialist_panel outperforms v2 sub-variants on specialist dimensions",
     "P6": "Rubric awareness matters more than topology",
-    "P7": "Consortium variants (v2-v8) have higher coherence than single-LLM baseline (v1)",
+    "P7": "Consortium variants have higher coherence than single-LLM baseline",
     "P8": "Quality and coherence are positively correlated (r > 0.3)",
 }
+
+# Helper to match variant IDs flexibly (v1_baseline, v1a_single_shot, etc.)
+_BASELINE_IDS = {"v1_baseline", "v1"}
+_V2_IDS = {"v2a_same_model", "v2b_cross_model", "v2c_multi_model", "v2_leader_reviewers", "v2"}
+_V3_IDS = {"v3a_naive_merge", "v3b_rubric_merge", "v3c_dialectical_merge", "v3_parallel_merge", "v3"}
+_V4_IDS = {"v4_adversarial", "v4"}
+_V5_IDS = {"v5_specialist_panel", "v5"}
+_V7_IDS = {"v7_consensus", "v7"}
 
 # Coherence rate threshold below which a warning is issued
 _COHERENCE_WARNING_THRESHOLD = 0.8
@@ -352,20 +360,21 @@ def validate_predictions(
 
 
 def _validate_p1(df: pd.DataFrame) -> PredictionResult:
-    """P1: v1 matches consortium quality on simple tasks."""
+    """P1: v1_baseline matches consortium quality on simple tasks."""
     simple = (
         df[df.get("complexity", pd.Series(dtype=str)) == "simple"]
         if "complexity" in df.columns
         else pd.DataFrame()
     )
 
-    if simple.empty or "v1" not in df["variant_id"].values:
+    baseline_mask = simple["variant_id"].isin(_BASELINE_IDS) if not simple.empty else pd.Series(dtype=bool)
+    if simple.empty or not baseline_mask.any():
         return PredictionResult(
             "P1", PREDICTIONS["P1"], supported=False, evidence="Insufficient data"
         )
 
-    v1_scores = simple[simple["variant_id"] == "v1"]["overall_median"].values
-    other_scores = simple[simple["variant_id"] != "v1"]["overall_median"].values
+    v1_scores = simple[baseline_mask]["overall_median"].values
+    other_scores = simple[~baseline_mask]["overall_median"].values
 
     if len(v1_scores) < 3 or len(other_scores) < 3:
         return PredictionResult(
@@ -379,12 +388,12 @@ def _validate_p1(df: pd.DataFrame) -> PredictionResult:
         PREDICTIONS["P1"],
         supported=supported,
         p_value=p_val,
-        evidence=f"Mann-Whitney U={stat:.1f}, p={p_val:.4f} (NS means v1 competitive)",
+        evidence=f"Mann-Whitney U={stat:.1f}, p={p_val:.4f} (NS means baseline competitive)",
     )
 
 
 def _validate_p2(df: pd.DataFrame) -> PredictionResult:
-    """P2: v3 achieves highest peak quality on complex tasks."""
+    """P2: v3 sub-variants achieve highest peak quality on complex tasks."""
     complex_df = (
         df[df.get("complexity", pd.Series(dtype=str)) == "complex"]
         if "complexity" in df.columns
@@ -398,57 +407,63 @@ def _validate_p2(df: pd.DataFrame) -> PredictionResult:
 
     means = complex_df.groupby("variant_id")["overall_median"].mean()
     best = means.idxmax()
-    supported = best == "v3"
+    # Supported if any v3 sub-variant is top
+    supported = best in _V3_IDS
+    v3_means = {vid: means[vid] for vid in means.index if vid in _V3_IDS}
+    best_v3 = max(v3_means.values()) if v3_means else 0
     return PredictionResult(
         "P2",
         PREDICTIONS["P2"],
         supported=supported,
-        evidence=f"Top variant on complex: {best} (mean={means[best]:.3f}), v3 mean={means.get('v3', 0):.3f}",
+        evidence=f"Top variant on complex: {best} (mean={means[best]:.3f}), "
+        f"best v3 sub-variant mean={best_v3:.3f}",
     )
 
 
 def _validate_p3(df: pd.DataFrame) -> PredictionResult:
-    """P3: v7 has lowest variance across repetitions."""
+    """P3: v7_consensus has lowest variance across repetitions."""
     va = variance_analysis(df)
     if not va:
         return PredictionResult("P3", PREDICTIONS["P3"], supported=False, evidence="No data")
 
     lowest_cv = va[0]  # sorted ascending by CV
-    supported = lowest_cv.variant_id == "v7"
+    supported = lowest_cv.variant_id in _V7_IDS
+    v7_cv = next((v.cv for v in va if v.variant_id in _V7_IDS), "N/A")
     return PredictionResult(
         "P3",
         PREDICTIONS["P3"],
         supported=supported,
         evidence=f"Lowest CV: {lowest_cv.variant_id} (CV={lowest_cv.cv:.4f}), "
-        f"v7 CV={next((v.cv for v in va if v.variant_id == 'v7'), 'N/A')}",
+        f"v7 CV={v7_cv}",
     )
 
 
 def _validate_p4(df: pd.DataFrame) -> PredictionResult:
-    """P4: v4 has highest variance across repetitions."""
+    """P4: v4_adversarial has highest variance across repetitions."""
     va = variance_analysis(df)
     if not va:
         return PredictionResult("P4", PREDICTIONS["P4"], supported=False, evidence="No data")
 
     highest_cv = va[-1]  # sorted ascending
-    supported = highest_cv.variant_id == "v4"
+    supported = highest_cv.variant_id in _V4_IDS
+    v4_cv = next((v.cv for v in va if v.variant_id in _V4_IDS), "N/A")
     return PredictionResult(
         "P4",
         PREDICTIONS["P4"],
         supported=supported,
         evidence=f"Highest CV: {highest_cv.variant_id} (CV={highest_cv.cv:.4f}), "
-        f"v4 CV={next((v.cv for v in va if v.variant_id == 'v4'), 'N/A')}",
+        f"v4 CV={v4_cv}",
     )
 
 
 def _validate_p5(df: pd.DataFrame) -> PredictionResult:
-    """P5: v5 outperforms v2 on specialist dimensions."""
-    v5 = df[df["variant_id"] == "v5"]
-    v2 = df[df["variant_id"] == "v2"]
+    """P5: v5_specialist_panel outperforms v2 sub-variants on specialist dimensions."""
+    v5 = df[df["variant_id"].isin(_V5_IDS)]
+    v2 = df[df["variant_id"].isin(_V2_IDS)]
 
     if v5.empty or v2.empty:
         return PredictionResult(
-            "P5", PREDICTIONS["P5"], supported=False, evidence="Missing v5 or v2"
+            "P5", PREDICTIONS["P5"], supported=False, evidence="Missing v5 or v2 data"
         )
 
     # Parse dimension_medians to find security/scalability
@@ -500,9 +515,12 @@ def _validate_p5(df: pd.DataFrame) -> PredictionResult:
 
 def _validate_p6(df: pd.DataFrame) -> PredictionResult:
     """P6: Rubric awareness matters more than topology."""
-    # Compare rubric-aware (v3,v4,v5,v6) vs non-rubric-aware (v1,v2,v7,v8)
-    rubric_aware = df[df["variant_id"].isin(["v3", "v4", "v5", "v6"])]["overall_median"].values
-    non_rubric = df[df["variant_id"].isin(["v1", "v2", "v7", "v8"])]["overall_median"].values
+    # Rubric-aware variants: those where the rubric is explicitly used in
+    # review/merge prompts (v3 sub-variants, v4, v5, v6)
+    rubric_aware_ids = _V3_IDS | _V4_IDS | _V5_IDS | {"v6_rotating_leader", "v6"}
+    non_rubric_ids = _BASELINE_IDS | _V2_IDS | _V7_IDS | {"v8_structured_debate", "v8", "v1a_single_shot"}
+    rubric_aware = df[df["variant_id"].isin(rubric_aware_ids)]["overall_median"].values
+    non_rubric = df[df["variant_id"].isin(non_rubric_ids)]["overall_median"].values
 
     if len(rubric_aware) < 3 or len(non_rubric) < 3:
         return PredictionResult(
@@ -522,14 +540,15 @@ def _validate_p6(df: pd.DataFrame) -> PredictionResult:
 
 
 def _validate_p7(coherence_df: pd.DataFrame) -> PredictionResult:
-    """P7: Consortium variants (v2-v8) have higher coherence than v1."""
+    """P7: Consortium variants have higher coherence than single-LLM baseline."""
     if coherence_df.empty:
         return PredictionResult(
             "P7", PREDICTIONS["P7"], supported=False, evidence="No coherence data"
         )
 
-    v1 = coherence_df[coherence_df["variant_id"] == "v1"]["coherence_rate"].values
-    consortium = coherence_df[coherence_df["variant_id"] != "v1"]["coherence_rate"].values
+    single_ids = _BASELINE_IDS | {"v1a_single_shot"}
+    v1 = coherence_df[coherence_df["variant_id"].isin(single_ids)]["coherence_rate"].values
+    consortium = coherence_df[~coherence_df["variant_id"].isin(single_ids)]["coherence_rate"].values
 
     if len(v1) < 3 or len(consortium) < 3:
         return PredictionResult(

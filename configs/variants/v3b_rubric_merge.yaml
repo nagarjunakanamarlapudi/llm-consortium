@@ -1,0 +1,13 @@
+variant:
+  extends: v3_parallel_merge.yaml
+  id: v3b
+  name: "Parallel Leaders + Rubric-Guided Merge"
+  description: "Multiple leaders independently generate designs, then a merger agent synthesizes them using rubric-guided merging that evaluates each design per dimension before selecting the best elements."
+  sub_variant: rubric_merge
+  # Identical to parent — v3's default is rubric-guided merging.
+  # Explicitly declared so v3b has a distinct experiment identity.
+  agents:
+    merger:
+      system_prompt_template: synthesis/merge_rubric_guided.j2
+  workflow:
+    merge_strategy: rubric_guided

@@ -1,0 +1,11 @@
+variant:
+  extends: v1_baseline.yaml
+  id: v1a
+  name: "Single Shot Baseline"
+  description: "Zero-iteration baseline. One designer generates a single design with no self-refinement rounds. Used to measure the value added by iterative refinement in v1."
+  sub_variant: single_shot
+  workflow:
+    max_rounds: 0
+  token_budget:
+    estimated_input: 15000
+    estimated_output: 12000

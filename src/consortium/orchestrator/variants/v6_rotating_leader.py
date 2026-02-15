@@ -76,6 +76,19 @@ class V6RotatingLeaderOrchestrator(VariantOrchestrator):
                     reviews=pending_reviews if pending_reviews else None,
                 )
 
+            # Determine phase focus if phases are configured
+            phases = self.config.workflow.phases
+            phase_focus = ""
+            focus_dimensions = None
+            if phases and round_num < len(phases):
+                phase = phases[round_num]
+                phase_focus = phase.focus
+                focus_dimensions = phase.focus_dimensions if phase.focus_dimensions else None
+                self._log.info(
+                    "phase_focus", round=round_num,
+                    phase_name=phase.name, focus=phase_focus,
+                )
+
             # Non-leaders review the current design
             self._log.info(
                 "round_start", round=round_num, step="review",
@@ -85,9 +98,33 @@ class V6RotatingLeaderOrchestrator(VariantOrchestrator):
                 self._review_as_designer(
                     reviewer, context, round_num, task, design, rubric_dims,
                     review_template,
+                    phase_focus=phase_focus,
+                    focus_dimensions=focus_dimensions,
                 )
                 for reviewer in reviewers
             )))
+
+        # Coherence phase: all participants review cross-phase consistency
+        if self.config.workflow.coherence_phase_enabled and design is not None:
+            self._log.info("coherence_phase_start")
+            coherence_reviews = list(await asyncio.gather(*(
+                self._review_as_designer(
+                    p, context, self.config.workflow.max_rounds, task, design, rubric_dims,
+                    review_template,
+                    phase_focus="Cross-phase coherence: check that all sections of the design are internally consistent and don't contradict each other.",
+                    focus_dimensions=None,
+                )
+                for p in participants
+            )))
+            # Do a final revision incorporating coherence feedback
+            design = await participants[0].act(
+                context=context,
+                round_num=self.config.workflow.max_rounds,
+                task=task,
+                rubric_dimensions=rubric_dims,
+                previous_design=design,
+                reviews=coherence_reviews,
+            )
 
         assert design is not None
         design.is_final = True
@@ -97,6 +134,7 @@ class V6RotatingLeaderOrchestrator(VariantOrchestrator):
     @staticmethod
     async def _review_as_designer(
         agent, context, round_num, task, design, rubric_dims, review_template,
+        *, phase_focus: str = "", focus_dimensions: list[str] | None = None,
     ) -> ReviewArtifact:
         """Use a DesignerAgent to produce review feedback via the review template."""
         template = review_template or agent.prompt_template
@@ -110,6 +148,8 @@ class V6RotatingLeaderOrchestrator(VariantOrchestrator):
                 [d.model_dump() for d in rubric_dims] if rubric_dims else None
             ),
             "other_reviews": None,
+            "phase_focus": phase_focus if phase_focus else None,
+            "focus_dimensions": focus_dimensions,
         }
 
         response = await agent._call_llm(

@@ -1,8 +1,15 @@
-"""v7 — Consensus Convergence: parallel generation → iterative convergence."""
+"""v7 — Consensus Convergence: parallel generation → iterative convergence.
+
+Supports two convergence detection modes:
+1. Epsilon-based (preferred): Uses quick evaluations to compute score range.
+   Converges when score range < convergence_epsilon.
+2. LLM-based (fallback): Uses a synthesis template with STATUS: CONVERGED pattern.
+"""
 
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 
 from consortium.config.models import TaskConfig
@@ -61,10 +68,47 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
 
             designs = new_designs
 
-            # Convergence check via synthesis template
-            if convergence_template:
-                self._log.info("round_start", round=round_num, step="convergence_check")
-                converged, synthesis = await self._check_convergence(
+            # Convergence check — prefer epsilon-based, fall back to LLM-based
+            epsilon = self.config.workflow.convergence_epsilon
+            self._log.info("round_start", round=round_num, step="convergence_check")
+
+            # Epsilon-based convergence: quick-evaluate all designs
+            converged = False
+            try:
+                scores = await asyncio.gather(*(
+                    self._quick_evaluate(context, d, task, rubric_dims)
+                    for d in designs
+                ))
+                score_range = max(scores) - min(scores)
+                self._log.info(
+                    "epsilon_convergence_check",
+                    round=round_num,
+                    scores=scores,
+                    score_range=f"{score_range:.3f}",
+                    epsilon=epsilon,
+                )
+                if score_range < epsilon:
+                    converged = True
+                    # Pick the best-scoring design
+                    best_idx = scores.index(max(scores))
+                    designs[best_idx].is_final = True
+                    self._log.info(
+                        "consensus_epsilon_converged",
+                        round=round_num,
+                        design_id=designs[best_idx].design_id,
+                        best_score=scores[best_idx],
+                    )
+                    return designs[best_idx]
+            except Exception as e:
+                self._log.warning(
+                    "epsilon_convergence_fallback",
+                    round=round_num,
+                    error=str(e),
+                )
+
+            # Fallback: LLM-based convergence via synthesis template
+            if not converged and convergence_template:
+                converged_llm, synthesis = await self._check_convergence(
                     context=context,
                     round_num=round_num,
                     task=task,
@@ -72,10 +116,10 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
                     rubric_dims=rubric_dims,
                     template=convergence_template,
                 )
-                if converged and synthesis:
+                if converged_llm and synthesis:
                     synthesis.is_final = True
                     self._log.info(
-                        "consensus_converged",
+                        "consensus_llm_converged",
                         round=round_num,
                         design_id=synthesis.design_id,
                     )
@@ -109,6 +153,73 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             for i in range(len(designs))
             if i != exclude_idx
         ]
+
+    async def _quick_evaluate(
+        self,
+        context: RunContext,
+        design: DesignArtifact,
+        task: TaskConfig,
+        rubric_dims,
+    ) -> float:
+        """Quick single-call evaluation returning an overall score.
+
+        Uses a simplified prompt to get a quick quality estimate (not the full
+        3x evaluation). Used for epsilon-based convergence detection only.
+        """
+        agent = self._get_agents("participants")[0]
+
+        template_vars = {
+            "design_text": design.full_text,
+            "system_name": task.variables.system_name,
+            "complexity": task.complexity,
+            "design_type": task.design_type,
+            "rubric_dimensions": (
+                [d.model_dump() for d in rubric_dims] if rubric_dims else None
+            ),
+            "quick_eval": True,
+        }
+
+        # Use the convergence template for quick eval, or fall back to review
+        template = self.config.workflow.convergence_template or self.config.workflow.review_template or "review/general_review.j2"
+
+        response = await agent._call_llm(
+            template=template,
+            template_vars=template_vars,
+            context=context,
+            step="quick_eval",
+            round_num=design.round,
+        )
+
+        # Extract a numeric score from the response
+        # Look for patterns like "Score: 7.5" or "Overall: 8/10" or JSON with overall_score
+        import re
+
+        # Try JSON extraction first
+        try:
+            # Look for JSON block
+            json_match = re.search(r'\{[^}]*"overall_score"[^}]*\}', response.content)
+            if json_match:
+                data = json.loads(json_match.group())
+                return float(data["overall_score"])
+        except (json.JSONDecodeError, KeyError, ValueError):
+            pass
+
+        # Try simple score patterns
+        score_patterns = [
+            r"(?:overall|total|final)\s*(?:score|rating)?:?\s*(\d+(?:\.\d+)?)\s*(?:/\s*10)?",
+            r"(\d+(?:\.\d+)?)\s*/\s*10",
+            r"score[:\s]+(\d+(?:\.\d+)?)",
+        ]
+        for pattern in score_patterns:
+            match = re.search(pattern, response.content, re.IGNORECASE)
+            if match:
+                score = float(match.group(1))
+                # Normalize to 0-10 scale if needed
+                return min(score, 10.0)
+
+        # Default: return 5.0 (neutral score) to avoid breaking convergence
+        self._log.warning("quick_eval_score_unparseable", design_id=design.design_id)
+        return 5.0
 
     async def _check_convergence(
         self, *, context, round_num, task, designs, rubric_dims, template,

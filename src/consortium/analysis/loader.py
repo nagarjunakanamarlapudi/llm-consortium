@@ -50,15 +50,41 @@ class CompletenessReport:
         return self.coherence_checked / self.evaluated_designs if self.evaluated_designs else 0.0
 
 
-def load_scores_dataframe(db: Database) -> pd.DataFrame:
+def _variant_filter_clause(
+    variant_ids: list[str] | None,
+    *,
+    table_alias: str = "r",
+) -> tuple[str, list[str]]:
+    """Build a SQL WHERE fragment to filter by variant IDs.
+
+    Returns (sql_fragment, params) where *sql_fragment* is either empty
+    or ``AND <alias>.variant_id IN (?, ?, …)``.
+    """
+    if not variant_ids:
+        return "", []
+    placeholders = ", ".join("?" for _ in variant_ids)
+    clause = f" AND {table_alias}.variant_id IN ({placeholders})"
+    return clause, list(variant_ids)
+
+
+def load_scores_dataframe(
+    db: Database,
+    variant_ids: list[str] | None = None,
+) -> pd.DataFrame:
     """Load scores into a DataFrame: join scores_median <- designs <- runs.
+
+    Args:
+        db: Database connection.
+        variant_ids: If provided, only include these variant IDs.
+            When *None* (default), all variants in the database are loaded.
 
     Returns a DataFrame with columns:
         variant_id, task_id, repetition, design_id, run_id,
         overall_median, dimension_medians (JSON string),
         krippendorff_alpha, disagreement_flags
     """
-    query = """
+    filter_clause, params = _variant_filter_clause(variant_ids)
+    query = f"""
         SELECT
             r.variant_id,
             r.task_id,
@@ -74,28 +100,35 @@ def load_scores_dataframe(db: Database) -> pd.DataFrame:
         JOIN runs r ON d.run_id = r.run_id
         WHERE d.is_final = TRUE
           AND r.status = 'completed'
+          {filter_clause}
         ORDER BY r.variant_id, r.task_id, r.repetition
     """
-    rows = db.conn.execute(query).fetchall()
+    rows = db.conn.execute(query, params).fetchall()
     if not rows:
         logger.warning("loader.no_scores")
         return pd.DataFrame()
 
     df = pd.DataFrame([dict(row) for row in rows])
-    logger.info("loader.scores_loaded", rows=len(df))
+    logger.info("loader.scores_loaded", rows=len(df), variants_filter=len(variant_ids) if variant_ids else "all")
     return df
 
 
-def load_coherence_dataframe(db: Database) -> pd.DataFrame:
+def load_coherence_dataframe(
+    db: Database,
+    variant_ids: list[str] | None = None,
+) -> pd.DataFrame:
     """Load coherence data: one row per design with coherence rate.
 
-    Joins coherence_checks <- designs <- runs and aggregates per design.
+    Args:
+        db: Database connection.
+        variant_ids: If provided, only include these variant IDs.
 
     Returns a DataFrame with columns:
         variant_id, task_id, repetition, design_id, run_id,
         pairs_checked, contradictions, coherence_rate
     """
-    query = """
+    filter_clause, params = _variant_filter_clause(variant_ids)
+    query = f"""
         SELECT
             r.variant_id,
             r.task_id,
@@ -109,10 +142,11 @@ def load_coherence_dataframe(db: Database) -> pd.DataFrame:
         JOIN runs r ON d.run_id = r.run_id
         WHERE d.is_final = TRUE
           AND r.status = 'completed'
+          {filter_clause}
         GROUP BY d.design_id
         ORDER BY r.variant_id, r.task_id, r.repetition
     """
-    rows = db.conn.execute(query).fetchall()
+    rows = db.conn.execute(query, params).fetchall()
     if not rows:
         logger.warning("loader.no_coherence")
         return pd.DataFrame()
@@ -123,15 +157,25 @@ def load_coherence_dataframe(db: Database) -> pd.DataFrame:
     return df
 
 
-def load_costs_dataframe(db: Database) -> pd.DataFrame:
+def load_costs_dataframe(
+    db: Database,
+    variant_ids: list[str] | None = None,
+) -> pd.DataFrame:
     """Load cost/token data from runs.
+
+    Args:
+        db: Database connection.
+        variant_ids: If provided, only include these variant IDs.
 
     Returns a DataFrame with columns:
         variant_id, task_id, repetition, run_id,
         total_cost_usd, total_input_tokens, total_output_tokens,
         duration_seconds
     """
-    query = """
+    filter_clause, params = _variant_filter_clause(
+        variant_ids, table_alias="runs",
+    )
+    query = f"""
         SELECT
             variant_id,
             task_id,
@@ -143,9 +187,10 @@ def load_costs_dataframe(db: Database) -> pd.DataFrame:
             duration_seconds
         FROM runs
         WHERE status = 'completed'
+          {filter_clause}
         ORDER BY variant_id, task_id, repetition
     """
-    rows = db.conn.execute(query).fetchall()
+    rows = db.conn.execute(query, params).fetchall()
     if not rows:
         logger.warning("loader.no_costs")
         return pd.DataFrame()

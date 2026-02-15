@@ -588,17 +588,27 @@ class EvaluationPipeline:
         evaluations: list[dict[str, Any]],
         rubric_config,
     ) -> None:
-        """Compute median scores and disagreement flags across evaluator runs."""
+        """Compute median scores, disagreement flags, and blocker counts across evaluator runs."""
         # Collect per-dimension scores across all evaluator runs
         dim_scores: dict[str, list[float]] = {}
         overall_scores: list[float] = []
 
+        # Extract critical blockers from evaluations
+        all_blockers: list[str] = []
         for evaluation in evaluations:
             overall_scores.append(evaluation.get("overall_score", 0.0))
             for ds in evaluation.get("dimension_scores", []):
                 dim_id = ds.get("dimension", "")
                 score = ds.get("score", 0.0)
                 dim_scores.setdefault(dim_id, []).append(score)
+                # Extract blockers from each dimension score
+                blockers = ds.get("blockers", [])
+                if isinstance(blockers, list):
+                    all_blockers.extend(blockers)
+            # Also check top-level blockers
+            top_blockers = evaluation.get("blockers", [])
+            if isinstance(top_blockers, list):
+                all_blockers.extend(top_blockers)
 
         # Compute medians
         dim_medians = {}
@@ -615,16 +625,20 @@ class EvaluationPipeline:
 
         overall_median = statistics.median(overall_scores) if overall_scores else 0.0
 
-        # Compute Krippendorff's alpha (simplified: use correlation-based proxy)
-        # Full implementation would use the krippendorff library
-        alpha = self._compute_alpha_proxy(dim_scores)
+        # Compute Krippendorff's alpha — use proper library if available
+        alpha = self._compute_krippendorff_alpha(dim_scores)
+
+        # Persist with blocker information
+        blocker_count = len(all_blockers)
+        blockers_json = json.dumps(all_blockers) if all_blockers else None
 
         conn = self.database.conn
         conn.execute(
             """INSERT OR REPLACE INTO scores_median (
                 design_id, run_id, dimension_medians, overall_median,
-                disagreement_flags, krippendorff_alpha
-            ) VALUES (?, ?, ?, ?, ?, ?)""",
+                disagreement_flags, krippendorff_alpha,
+                blocker_count, blockers_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 design_id,
                 run_id,
@@ -632,6 +646,8 @@ class EvaluationPipeline:
                 overall_median,
                 json.dumps(disagreement_flags) if disagreement_flags else None,
                 alpha,
+                blocker_count,
+                blockers_json,
             ),
         )
         conn.commit()
@@ -642,42 +658,74 @@ class EvaluationPipeline:
             overall_median=overall_median,
             disagreements=len(disagreement_flags),
             alpha=f"{alpha:.3f}" if alpha else "N/A",
+            blocker_count=blocker_count,
         )
 
     @staticmethod
-    def _compute_alpha_proxy(dim_scores: dict[str, list[float]]) -> float | None:
-        """Compute a simplified inter-rater reliability metric.
+    def _compute_krippendorff_alpha(dim_scores: dict[str, list[float]]) -> float | None:
+        """Compute Krippendorff's alpha for inter-rater reliability.
 
-        This is a variance-based proxy for Krippendorff's alpha.
-        alpha = 1 - (observed_disagreement / expected_disagreement)
+        Uses the ``krippendorff`` package if available, otherwise falls back
+        to a variance-based proxy.
 
-        For the full experiment analysis, use the krippendorff package.
+        The reliability data matrix has raters (evaluator runs) as rows and
+        items (rubric dimensions) as columns.
         """
         if not dim_scores:
             return None
 
-        all_scores = []
-        within_var_sum = 0.0
-        n_dims = 0
-
-        for scores in dim_scores.values():
-            if len(scores) < 2:
-                continue
-            all_scores.extend(scores)
-            within_var_sum += statistics.variance(scores)
-            n_dims += 1
-
-        if n_dims == 0 or len(all_scores) < 3:
+        # Need at least 2 raters and 2 items
+        n_raters = max((len(scores) for scores in dim_scores.values()), default=0)
+        if n_raters < 2 or len(dim_scores) < 2:
             return None
 
-        within_var = within_var_sum / n_dims
-        total_var = statistics.variance(all_scores)
+        try:
+            import krippendorff
 
-        if total_var == 0:
-            return 1.0  # Perfect agreement
+            # Build reliability data matrix: raters × items (dimensions)
+            # Each row is a rater, each column is a dimension
+            dim_ids = sorted(dim_scores.keys())
+            reliability_data = []
+            for rater_idx in range(n_raters):
+                row = []
+                for dim_id in dim_ids:
+                    scores = dim_scores[dim_id]
+                    if rater_idx < len(scores):
+                        row.append(scores[rater_idx])
+                    else:
+                        row.append(None)  # missing value
+                reliability_data.append(row)
 
-        alpha = 1.0 - (within_var / total_var)
-        return max(0.0, min(1.0, alpha))
+            alpha = krippendorff.alpha(
+                reliability_data=reliability_data,
+                level_of_measurement="ordinal",
+            )
+            return float(alpha)
+
+        except ImportError:
+            # Graceful fallback to variance-based proxy
+            all_scores = []
+            within_var_sum = 0.0
+            n_dims = 0
+
+            for scores in dim_scores.values():
+                if len(scores) < 2:
+                    continue
+                all_scores.extend(scores)
+                within_var_sum += statistics.variance(scores)
+                n_dims += 1
+
+            if n_dims == 0 or len(all_scores) < 3:
+                return None
+
+            within_var = within_var_sum / n_dims
+            total_var = statistics.variance(all_scores)
+
+            if total_var == 0:
+                return 1.0  # Perfect agreement
+
+            alpha = 1.0 - (within_var / total_var)
+            return max(0.0, min(1.0, alpha))
 
     def _clear_evaluations(self, design_id: str) -> None:
         """Remove existing evaluations for a design (for --force)."""

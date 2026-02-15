@@ -191,3 +191,156 @@ def coherence_variant_heatmap(
     ax.set_xlabel("Task")
 
     _save_fig(fig, output_path)
+
+
+# ── Box Plots (§8.2 Stage 1) ──────────────────────────────────────────────
+
+
+def variant_boxplot(
+    scores_df: pd.DataFrame,
+    output_path: Path,
+) -> None:
+    """Box plot of quality scores per variant, sorted by median.
+
+    Shows distribution of overall_median across all tasks and repetitions.
+    Implements thesis §8.2 Stage 1.
+    """
+    if scores_df.empty:
+        return
+
+    # Sort variants by median score
+    medians = scores_df.groupby("variant_id")["overall_median"].median().sort_values(ascending=False)
+    order = list(medians.index)
+
+    fig, ax = plt.subplots(figsize=(max(10, len(order) * 0.8), 6))
+    sns.boxplot(
+        data=scores_df,
+        x="variant_id",
+        y="overall_median",
+        order=order,
+        palette="Set2",
+        ax=ax,
+    )
+    sns.stripplot(
+        data=scores_df,
+        x="variant_id",
+        y="overall_median",
+        order=order,
+        color="0.3",
+        size=3,
+        alpha=0.5,
+        ax=ax,
+    )
+    ax.set_title("Quality Score Distribution by Variant")
+    ax.set_xlabel("Variant")
+    ax.set_ylabel("Overall Median Score (1–5)")
+    ax.set_ylim(0.5, 5.5)
+    plt.xticks(rotation=45, ha="right")
+
+    _save_fig(fig, output_path)
+
+
+def variant_boxplot_by_complexity(
+    scores_df: pd.DataFrame,
+    output_path: Path,
+) -> None:
+    """Box plots of quality scores per variant, faceted by task complexity.
+
+    Produces a multi-panel figure with one subplot per complexity level.
+    Implements thesis §8.2 Stage 1.
+    """
+    if scores_df.empty or "complexity" not in scores_df.columns:
+        logger.warning("boxplot.no_complexity_data")
+        return
+
+    complexities = sorted(scores_df["complexity"].unique())
+    n_panels = len(complexities)
+    if n_panels == 0:
+        return
+
+    fig, axes = plt.subplots(
+        1, n_panels,
+        figsize=(max(6, n_panels * 5), 6),
+        sharey=True,
+    )
+    if n_panels == 1:
+        axes = [axes]
+
+    for ax, complexity in zip(axes, complexities):
+        subset = scores_df[scores_df["complexity"] == complexity]
+        medians = subset.groupby("variant_id")["overall_median"].median().sort_values(ascending=False)
+        order = list(medians.index)
+
+        sns.boxplot(
+            data=subset,
+            x="variant_id",
+            y="overall_median",
+            order=order,
+            palette="Set2",
+            ax=ax,
+        )
+        ax.set_title(f"{complexity.title()} Tasks")
+        ax.set_xlabel("Variant")
+        ax.set_ylabel("Score" if ax == axes[0] else "")
+        ax.set_ylim(0.5, 5.5)
+        ax.tick_params(axis="x", rotation=45)
+
+    fig.suptitle("Quality Score Distribution by Variant and Complexity", fontsize=14, y=1.02)
+    fig.tight_layout()
+
+    _save_fig(fig, output_path)
+
+
+def cost_quality_scatter(
+    scores_df: pd.DataFrame,
+    costs_df: pd.DataFrame,
+    output_path: Path,
+) -> None:
+    """Scatter plot: mean quality vs mean cost per variant.
+
+    Each point is a variant; includes error bars for IQR.
+    """
+    if scores_df.empty or costs_df.empty:
+        return
+
+    merged = scores_df.merge(
+        costs_df[["run_id", "total_cost_usd"]],
+        on="run_id",
+        how="inner",
+    )
+
+    stats = merged.groupby("variant_id").agg(
+        mean_quality=("overall_median", "mean"),
+        mean_cost=("total_cost_usd", "mean"),
+        q25=("overall_median", lambda x: x.quantile(0.25)),
+        q75=("overall_median", lambda x: x.quantile(0.75)),
+    ).reset_index()
+
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax.errorbar(
+        stats["mean_cost"],
+        stats["mean_quality"],
+        yerr=[
+            stats["mean_quality"] - stats["q25"],
+            stats["q75"] - stats["mean_quality"],
+        ],
+        fmt="o",
+        capsize=4,
+        markersize=8,
+        color="steelblue",
+    )
+    for _, row in stats.iterrows():
+        ax.annotate(
+            row["variant_id"],
+            (row["mean_cost"], row["mean_quality"]),
+            textcoords="offset points",
+            xytext=(8, 4),
+            fontsize=9,
+        )
+
+    ax.set_xlabel("Mean Cost (USD)")
+    ax.set_ylabel("Mean Quality Score (1–5)")
+    ax.set_title("Cost vs Quality by Variant")
+    ax.grid(True, alpha=0.3)
+
+    _save_fig(fig, output_path)

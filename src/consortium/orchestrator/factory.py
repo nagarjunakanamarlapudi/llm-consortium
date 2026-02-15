@@ -43,11 +43,43 @@ _VARIANT_REGISTRY: dict[str, type[VariantOrchestrator]] = {
 }
 
 
+def _resolve_variant_class(variant_id: str) -> type[VariantOrchestrator] | None:
+    """Resolve a variant ID to its orchestrator class.
+
+    Sub-variants (e.g. ``v1a``, ``v2b``, ``v3c``) share the same orchestrator
+    as their parent variant. The behavioral differences come from the YAML
+    config (different models, prompt templates, workflow parameters), not
+    from different orchestrator code.
+
+    Resolution: try exact match first (``v2``), then strip trailing
+    letter to get the parent (``v2a`` → ``v2``).
+    """
+    # Exact match
+    if variant_id in _VARIANT_REGISTRY:
+        return _VARIANT_REGISTRY[variant_id]
+
+    # Sub-variant: strip trailing letter(s) to find parent.
+    # Handles v1a → v1, v2a → v2, v2b → v2, v3c → v3, etc.
+    import re
+
+    parent_match = re.match(r"^(v\d+)", variant_id)
+    if parent_match:
+        parent_id = parent_match.group(1)
+        return _VARIANT_REGISTRY.get(parent_id)
+
+    return None
+
+
 def create_variant_orchestrator(
     variant_config: VariantConfig,
     agents: dict[str, BaseAgent | list[BaseAgent]],
 ) -> VariantOrchestrator:
     """Create a variant orchestrator from config and pre-built agents.
+
+    Sub-variants (v1a, v2a-c, v3a-c) are resolved to their parent
+    orchestrator class. The behavioral differences between sub-variants
+    come from the YAML config (model assignments, prompt templates,
+    workflow parameters) rather than from different orchestrator code.
 
     Args:
         variant_config: The variant's configuration.
@@ -59,11 +91,18 @@ def create_variant_orchestrator(
     Raises:
         ValueError: If the variant ID is not registered.
     """
-    variant_cls = _VARIANT_REGISTRY.get(variant_config.id)
+    variant_cls = _resolve_variant_class(variant_config.id)
     if variant_cls is None:
         available = ", ".join(sorted(_VARIANT_REGISTRY))
         msg = f"Unknown variant '{variant_config.id}'. Available: {available}"
         raise ValueError(msg)
+
+    logger.info(
+        "variant_orchestrator_resolved",
+        variant_id=variant_config.id,
+        sub_variant=variant_config.sub_variant,
+        orchestrator=variant_cls.__name__,
+    )
 
     return variant_cls(config=variant_config, agents=agents)
 

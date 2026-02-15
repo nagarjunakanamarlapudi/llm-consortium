@@ -454,6 +454,12 @@ class ExperimentRunner:
         completed = self._get_completed_runs() if resume and not force else set()
         pending = [r for r in run_matrix if r not in completed]
 
+        # Randomize run order using experiment seed for reproducibility
+        import random
+
+        rng = random.Random(self.config.experiment.seed)
+        rng.shuffle(pending)
+
         log = logger.bind(
             total_runs=len(run_matrix),
             pending=len(pending),

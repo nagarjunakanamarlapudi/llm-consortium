@@ -4,7 +4,7 @@ model:
   api_model: "gpt-oss-120b-ctx20k:latest"
 
   ollama:
-    host: "${OLLAMA_HOST:-http://localhost:11434}"
+    host: "${OLLAMA_HOST:-http://nagarjunas-Mac-Studio.local:11434}"
     concurrency: 2
     keep_alive: "90m"
 

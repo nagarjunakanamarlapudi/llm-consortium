@@ -16,6 +16,7 @@ class LLMRequest:
     model_config_id: str  # references a model config
     parameters: dict[str, object] = field(default_factory=dict)
     metadata: dict[str, str] = field(default_factory=dict)  # for tracing
+    seed: int | None = None  # deterministic seed for reproducibility
 
 
 @dataclass(frozen=True)

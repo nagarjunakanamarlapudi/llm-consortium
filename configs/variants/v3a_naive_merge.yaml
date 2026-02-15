@@ -1,0 +1,11 @@
+variant:
+  extends: v3_parallel_merge.yaml
+  id: v3a
+  name: "Parallel Leaders + Naive Merge"
+  description: "Multiple leaders independently generate designs, then a merger agent synthesizes them using simple concatenation and selection (naive merge strategy)."
+  sub_variant: naive_merge
+  agents:
+    merger:
+      system_prompt_template: synthesis/merge_naive.j2
+  workflow:
+    merge_strategy: naive

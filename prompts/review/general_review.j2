@@ -30,6 +30,16 @@ Score anchors:
 {% endfor %}
 {% endif %}
 
+{% if phase_focus is defined and phase_focus %}
+## Phase Focus
+
+**This review phase focuses on:** {{ phase_focus }}
+
+{% if focus_dimensions %}Prioritize your review on these dimensions: {{ focus_dimensions | join(", ") }}{% endif %}
+
+While you may note issues in other areas, concentrate your detailed analysis and improvement suggestions on the focus areas above.
+{% endif %}
+
 ## Review Instructions
 
 Provide a thorough, constructive review that:

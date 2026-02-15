@@ -4,10 +4,17 @@ experiment:
   output_dir: "data/"
   database: "data/consortium.db"
 
+  # Parent variants (v2, v3) serve as inheritance templates only;
+  # their sub-variants (v2a-c, v3a-c) are the actual experiment conditions.
   variants:
     - v1_baseline
-    - v2_leader_reviewers
-    - v3_parallel_merge
+    - v1a_single_shot
+    - v2a_same_model
+    - v2b_cross_model
+    - v2c_multi_model
+    - v3a_naive_merge
+    - v3b_rubric_merge
+    - v3c_dialectical_merge
     - v4_adversarial
     - v5_specialist_panel
     - v6_rotating_leader
@@ -16,12 +23,12 @@ experiment:
 
   tasks:
     - t1_url_shortener
-    - t2_chat_app
-    - t3_ecommerce
-    - t4_notification
-    - t5_trading_platform
+    - t2_rate_limiter
+    - t3_notification_system
+    - t4_task_queue
+    - t5_saas_billing
     - t6_video_streaming
-    - t7_autonomous_fleet
+    - t7_rbac_abac
     - t8_ml_platform
 
   repetitions: 5

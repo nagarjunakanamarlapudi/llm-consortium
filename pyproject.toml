@@ -23,6 +23,8 @@ dependencies = [
     "tenacity>=9.0",
     "structlog>=24.4",
     "python-dotenv>=1.0",
+    "krippendorff>=0.8",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]

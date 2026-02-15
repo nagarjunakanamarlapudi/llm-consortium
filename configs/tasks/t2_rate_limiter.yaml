@@ -1,0 +1,42 @@
+task:
+  id: "t2"
+  name: "Rate Limiter Service"
+  complexity: "simple"
+  design_type: "application"
+  rubric: "application_design"
+  prompt_template: "generation/design_application.j2"
+  variables:
+    system_name: "Rate Limiter Service"
+    problem_statement: |
+      Design a distributed rate limiter module that enforces request quotas across
+      multiple services in a microservices architecture. The rate limiter must support
+      multiple limiting strategies including token bucket, sliding window log, and
+      fixed window counter, selectable per endpoint or per client. It must operate
+      both as an embedded library for in-process limiting and as a standalone service
+      for centralized enforcement. The module must handle concurrent requests safely
+      without race conditions, even when multiple application instances share the same
+      rate limit counters via a distributed store. It must add no more than 5ms of
+      latency overhead per request at the 99th percentile. The system must support
+      hierarchical rate limits (per-user, per-tenant, per-endpoint, global) with
+      configurable burst allowances. When limits are exceeded, the module must return
+      appropriate HTTP 429 responses with Retry-After headers and support configurable
+      back-pressure strategies including queuing, throttling, and hard rejection.
+    hard_constraints:
+      - "Maximum 5ms latency overhead per request at the 99th percentile"
+      - "Must support at least three rate limiting algorithms: token bucket, sliding window, fixed window"
+      - "Thread-safe and process-safe for concurrent access across multiple application instances"
+      - "Must work both as an embedded library and as a standalone gRPC/HTTP service"
+      - "Support hierarchical limits: per-user, per-tenant, per-endpoint, and global"
+      - "Graceful degradation: if the backing store is unavailable, fall back to local in-memory limits"
+    use_cases:
+      - "Enforce per-user API rate limits across a fleet of stateless application servers"
+      - "Apply sliding window rate limiting to prevent burst abuse on payment endpoints"
+      - "Configure tiered rate limits based on subscription plan (free: 100 req/min, pro: 10000 req/min)"
+      - "Provide real-time rate limit headers (X-RateLimit-Remaining, X-RateLimit-Reset) in API responses"
+      - "Rate limit by composite keys (user_id + endpoint + HTTP method) for fine-grained control"
+      - "Support burst allowance: allow temporary spikes up to 2x the sustained rate for 10 seconds"
+    complexity_drivers:
+      - "Concurrency safety under high contention without degrading throughput"
+      - "Clock synchronization challenges in distributed sliding window implementations"
+      - "Trade-off between accuracy and performance in distributed counter updates"
+      - "Consistent behavior during network partitions between application and backing store"

@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+import copy
+
 import yaml
 
 from consortium.config.models import (
@@ -67,10 +69,61 @@ def load_model_config(path: Path) -> ModelConfig:
     return ModelConfig(**model_data)
 
 
-def load_variant_config(path: Path) -> VariantConfig:
-    """Load a variant config from a YAML file."""
+def _deep_merge(base: dict, overrides: dict) -> dict:
+    """Deep-merge *overrides* into a copy of *base*.
+
+    - Dict values are recursively merged.
+    - Lists and scalars in *overrides* replace the base value entirely.
+    """
+    result = copy.deepcopy(base)
+    for key, value in overrides.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = copy.deepcopy(value)
+    return result
+
+
+def load_variant_config(
+    path: Path,
+    *,
+    variants_dir: Path | None = None,
+) -> VariantConfig:
+    """Load a variant config from a YAML file.
+
+    If the YAML contains an ``extends`` key, the referenced parent
+    variant is loaded first and the current file's values are
+    deep-merged on top.  This lets sub-variant files specify only
+    the fields that differ from the parent, avoiding duplication.
+
+    Example sub-variant YAML::
+
+        variant:
+          extends: v2_leader_reviewers.yaml
+          id: v2a
+          name: "Leader + Reviewers (Same Model)"
+          sub_variant: same_model
+          agents:
+            reviewers:
+              model: vertex-gemini-2.5-pro
+    """
     data = load_yaml(path)
     variant_data = data.get("variant", data)
+
+    extends = variant_data.pop("extends", None)
+    if extends is not None:
+        # Resolve parent path relative to the same directory
+        parent_dir = variants_dir or path.parent
+        parent_path = parent_dir / extends
+        if not parent_path.exists():
+            msg = f"Parent variant not found: {parent_path} (extends: {extends})"
+            raise FileNotFoundError(msg)
+        parent_data = load_yaml(parent_path)
+        parent_variant = parent_data.get("variant", parent_data)
+        # Drop parent's extends to prevent accidental chaining
+        parent_variant.pop("extends", None)
+        variant_data = _deep_merge(parent_variant, variant_data)
+
     _normalize_named_agents(variant_data)
     return VariantConfig(**variant_data)
 
@@ -178,12 +231,13 @@ def load_full_config(config_dir: str | Path) -> FullConfig:
             mc = load_model_config(f)
             models[mc.id] = mc
 
-    # Variants
+    # Variants (two-pass: files without 'extends' first, then sub-variants)
     variants: dict[str, VariantConfig] = {}
     variants_dir = config_dir / "variants"
     if variants_dir.exists():
-        for f in sorted(variants_dir.glob("*.yaml")):
-            vc = load_variant_config(f)
+        all_variant_files = sorted(variants_dir.glob("*.yaml"))
+        for f in all_variant_files:
+            vc = load_variant_config(f, variants_dir=variants_dir)
             variants[vc.id] = vc
 
     # Tasks

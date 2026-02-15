@@ -1,0 +1,9 @@
+variant:
+  extends: v2_leader_reviewers.yaml
+  id: v2a
+  name: "Leader + Reviewers (Same Model)"
+  description: "Leader and all reviewers use the same model. Tests whether multi-agent collaboration adds value even without model diversity."
+  sub_variant: same_model
+  agents:
+    reviewers:
+      model: vertex-gemini-2.5-pro

@@ -1,0 +1,45 @@
+task:
+  id: "t7"
+  name: "Rule-Based Access Control Module"
+  complexity: "complex"
+  design_type: "application"
+  rubric: "application_design"
+  prompt_template: "generation/design_application.j2"
+  variables:
+    system_name: "Rule-Based Access Control Module"
+    problem_statement: |
+      Design a hybrid RBAC/ABAC access control module for a multi-tenant enterprise
+      platform that manages permissions for thousands of users across hundreds of
+      resources. The module must support role-based access control (RBAC) with
+      hierarchical role inheritance, attribute-based access control (ABAC) with
+      a policy expression language supporting user attributes, resource attributes,
+      and environmental conditions (time, IP, device), and the composition of both
+      into unified authorization decisions. The policy engine must evaluate access
+      requests in under 5ms at the 95th percentile, supporting at least 50,000
+      authorization checks per second. The module must handle policy conflict
+      resolution with configurable strategies (deny-overrides, permit-overrides,
+      first-applicable), support delegated administration where tenant admins can
+      create roles and policies scoped to their tenant without affecting others,
+      and maintain a complete immutable audit log of all access decisions including
+      denied requests. It must support permission caching with correct invalidation
+      when roles or policies change, and provide a policy simulation API that lets
+      administrators test what-if scenarios before deploying policy changes.
+    hard_constraints:
+      - "Authorization check latency under 5ms at 95th percentile, supporting 50,000 checks per second"
+      - "Support both RBAC (hierarchical roles) and ABAC (attribute-based policies) in a unified model"
+      - "Policy conflict resolution with configurable strategies: deny-overrides, permit-overrides, first-applicable"
+      - "Immutable audit log of all authorization decisions including denied access with full context"
+      - "Tenant-scoped delegated administration: tenant admins manage their own roles and policies only"
+      - "Cache invalidation must propagate permission changes within 1 second across all nodes"
+    use_cases:
+      - "Check if user with role 'editor' can update resource 'document-123' owned by their department"
+      - "Evaluate an ABAC policy: allow access only during business hours from corporate IP ranges"
+      - "Inherit permissions through role hierarchy: 'admin' inherits all 'editor' and 'viewer' permissions"
+      - "Delegate tenant admin to create custom roles scoped to their organization without affecting other tenants"
+      - "Simulate a policy change to preview which users would gain or lose access before deployment"
+      - "Query the audit log to investigate who accessed sensitive resources in the last 24 hours"
+    complexity_drivers:
+      - "Policy language expressiveness vs evaluation performance: richer policies are slower to evaluate"
+      - "Permission cache invalidation in a distributed system: stale caches create security vulnerabilities"
+      - "Composing RBAC and ABAC decisions: role grants meet attribute denials, requiring clear precedence rules"
+      - "Audit trail completeness: every decision must be logged with full context without impacting authorization latency"

@@ -9,12 +9,20 @@ import structlog
 
 logger = structlog.get_logger()
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Migration from v1 to v2: add prompt_text and response_text to traces
 MIGRATION_V2 = """
 ALTER TABLE traces ADD COLUMN prompt_text TEXT;
 ALTER TABLE traces ADD COLUMN response_text TEXT;
+"""
+
+# Migration from v2 to v3: add blocker tracking and seed columns
+MIGRATION_V3 = """
+ALTER TABLE scores_median ADD COLUMN blocker_count INTEGER DEFAULT 0;
+ALTER TABLE scores_median ADD COLUMN blockers_json TEXT;
+ALTER TABLE traces ADD COLUMN seed INTEGER;
+ALTER TABLE runs ADD COLUMN seed INTEGER;
 """
 
 SCHEMA_SQL = """\
@@ -225,6 +233,17 @@ class Database:
                 logger.info("migration_applied", from_version=current, to_version=2)
             except sqlite3.OperationalError as e:
                 # Column already exists (fresh DB created with v2 schema)
+                if "duplicate column" not in str(e).lower():
+                    raise
+
+        if current < 3:
+            try:
+                for stmt in MIGRATION_V3.strip().splitlines():
+                    stmt = stmt.strip()
+                    if stmt:
+                        self.conn.execute(stmt)
+                logger.info("migration_applied", from_version=current, to_version=3)
+            except sqlite3.OperationalError as e:
                 if "duplicate column" not in str(e).lower():
                     raise
 

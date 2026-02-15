@@ -1,0 +1,15 @@
+variant:
+  extends: v2_leader_reviewers.yaml
+  id: v2c
+  name: "Leader + Reviewers (Multi-Model)"
+  description: "Leader and each reviewer use different model families. Maximum model diversity to test heterogeneous ensemble effects."
+  sub_variant: multi_model
+  # NOTE: True per-reviewer model assignment (reviewer_1=gpt, reviewer_2=claude)
+  # requires extending the v2 orchestrator to support individually-named reviewers.
+  # For now, reviewer model differs from leader to ensure cross-family diversity.
+  agents:
+    leader:
+      # model: vertex-claude-sonnet
+      model: vertex-gemini-2.5-pro
+    reviewers:
+      model: gpt-oss-120b

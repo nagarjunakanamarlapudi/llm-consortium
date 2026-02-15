@@ -27,7 +27,7 @@ class RateLimitConfig(BaseModel, frozen=True):
 class OllamaConfig(BaseModel, frozen=True):
     """Ollama-specific settings."""
 
-    host: str = "http://localhost:11434"
+    host: str = "http://nagarjunas-Mac-Studio.local:11434"
     concurrency: int = 2
     keep_alive: str = "30m"
 
@@ -113,6 +113,15 @@ class MatrixPositionConfig(BaseModel, frozen=True):
     dynamics: str = ""  # "cooperative" | "adversarial"
 
 
+class PhaseConfig(BaseModel, frozen=True):
+    """Configuration for a single review phase in phased variants (v6)."""
+
+    name: str = ""
+    focus: str = ""
+    focus_dimensions: list[str] = Field(default_factory=list)
+    instructions: str = ""
+
+
 class WorkflowConfig(BaseModel, frozen=True):
     """Workflow parameters for a variant."""
 
@@ -128,6 +137,13 @@ class WorkflowConfig(BaseModel, frozen=True):
     convergence_template: str | None = None
     rebuttal_template: str | None = None
     synthesis_template: str | None = None
+
+    # Phase-based review (v6 rotating leader)
+    phases: list[PhaseConfig] = Field(default_factory=list)
+    coherence_phase_enabled: bool = False
+
+    # Epsilon-based convergence (v7 consensus)
+    convergence_epsilon: float = 0.3
 
 
 class TokenBudgetConfig(BaseModel, frozen=True):

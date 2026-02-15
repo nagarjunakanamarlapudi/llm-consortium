@@ -26,14 +26,15 @@ _VERDICT_PATTERN = re.compile(r"VERDICT:\s*(ACCEPT|REJECT)", re.IGNORECASE)
 def parse_verdict(text: str) -> str:
     """Extract ACCEPT or REJECT verdict from response text.
 
-    Returns ``"accept"`` or ``"reject"``. Defaults to ``"accept"`` if the
-    verdict cannot be parsed (fail-open to avoid infinite rejection loops).
+    Returns ``"accept"`` or ``"reject"``. Defaults to ``"reject"`` if the
+    verdict cannot be parsed (fail-closed: unparseable responses are treated
+    as rejections to avoid silently passing low-quality designs).
     """
     match = _VERDICT_PATTERN.search(text)
     if match:
         return match.group(1).lower()
-    logger.warning("verdict_unparseable", text_length=len(text))
-    return "accept"
+    logger.warning("verdict_unparseable_defaulting_reject", text_length=len(text))
+    return "reject"
 
 
 class AdversarialReviewer(BaseAgent):

@@ -125,6 +125,12 @@ class FullExperimentRunner:
             (vid, tid, rep) for vid in variant_ids for tid in task_ids for rep in range(n_reps)
         ]
 
+        # Randomize run order using experiment seed for reproducibility
+        import random
+
+        rng = random.Random(self.config.experiment.seed)
+        rng.shuffle(run_matrix)
+
         # Determine what needs running
         pending = self._get_pending_runs(run_matrix, force=force)
 

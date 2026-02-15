@@ -1,0 +1,44 @@
+task:
+  id: "t5"
+  name: "Multi-Tenant SaaS Billing Platform"
+  complexity: "complex"
+  design_type: "system"
+  rubric: "system_design"
+  prompt_template: "generation/design_system.j2"
+  variables:
+    system_name: "Multi-Tenant SaaS Billing Platform"
+    problem_statement: |
+      Design a multi-tenant SaaS billing platform that handles subscription management,
+      usage-based metering, invoice generation, and payment processing for a B2B software
+      company with thousands of tenants. The system must support multiple pricing models
+      including flat-rate subscriptions, per-seat licensing, tiered usage pricing, and
+      hybrid models combining fixed and variable components. It must accurately meter
+      resource consumption (API calls, storage, compute hours) in near-real-time with
+      sub-second ingestion latency, aggregate usage into billing periods, and generate
+      correct invoices with line-item detail. The platform must handle mid-cycle plan
+      changes with correct proration, support multiple currencies with exchange rate
+      management, calculate applicable taxes per jurisdiction, and maintain an immutable
+      audit trail of all billing events. It must integrate with payment gateways (Stripe,
+      Braintree) for charge processing, handle failed payments with dunning workflows,
+      and provide self-service billing portals for tenants. Financial correctness is
+      paramount: the system must reconcile to the penny across all billing cycles and
+      withstand audit scrutiny.
+    hard_constraints:
+      - "Financial correctness: all calculations must reconcile to the penny with immutable audit trail"
+      - "Support flat-rate, per-seat, tiered usage, and hybrid pricing models simultaneously"
+      - "Near-real-time usage metering with sub-second ingestion latency for billing events"
+      - "Multi-currency support with exchange rate management and per-jurisdiction tax calculation"
+      - "Tenant data isolation: strict separation of billing data between tenants"
+      - "PCI DSS compliance for payment data handling; no raw card numbers stored in the system"
+    use_cases:
+      - "Meter API calls per tenant in real-time and aggregate into monthly billing periods"
+      - "Generate an invoice with line items for base subscription, overage charges, and applicable taxes"
+      - "Prorate charges when a tenant upgrades from Basic to Enterprise mid-billing-cycle"
+      - "Execute a dunning workflow: retry failed payment at day 1, 3, 7; downgrade at day 14; suspend at day 30"
+      - "Provide a tenant self-service portal showing usage dashboards, invoices, and payment history"
+      - "Reconcile all charges against payment gateway settlement reports for month-end close"
+    complexity_drivers:
+      - "Financial correctness over all else: rounding errors, currency conversion, and tax calculations compound"
+      - "Usage metering at scale: millions of events per hour must be accurately attributed to the right tenant and billing period"
+      - "Complex state machine for subscription lifecycle: trial, active, past-due, suspended, cancelled, with correct proration at each transition"
+      - "Regulatory compliance: tax rules vary by jurisdiction and change frequently"

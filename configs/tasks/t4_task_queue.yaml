@@ -1,0 +1,42 @@
+task:
+  id: "t4"
+  name: "Distributed Task Queue and Job Scheduler"
+  complexity: "medium"
+  design_type: "application"
+  rubric: "application_design"
+  prompt_template: "generation/design_application.j2"
+  variables:
+    system_name: "Distributed Task Queue and Job Scheduler"
+    problem_statement: |
+      Design a distributed task queue and job scheduling module that provides reliable
+      background job processing for a microservices platform. The system must support
+      immediate task dispatch, delayed/scheduled execution, recurring cron-like jobs,
+      and workflow orchestration with task dependencies (DAG execution). It must guarantee
+      at-least-once execution with configurable retry policies including exponential
+      backoff with jitter, maximum retry counts, and dead-letter queue routing for
+      permanently failed tasks. The module must support task priority levels, ensuring
+      high-priority jobs preempt lower-priority ones without starvation. Workers must
+      support concurrency control with configurable parallelism, task-level timeouts,
+      and graceful shutdown with in-flight task completion. The system must provide
+      idempotency tokens to prevent duplicate execution during retries, task progress
+      reporting for long-running jobs, and a management API for inspecting, cancelling,
+      and replaying failed tasks. It must handle at least 10,000 task dispatches per
+      second with end-to-end latency under 100ms for immediate tasks.
+    hard_constraints:
+      - "At-least-once execution guarantee with configurable retry and dead-letter policies"
+      - "Support immediate, delayed, cron-scheduled, and DAG-based workflow execution"
+      - "Handle at least 10,000 task dispatches per second with under 100ms latency"
+      - "Idempotency tokens to prevent duplicate execution across retries and redelivery"
+      - "Worker graceful shutdown: complete in-flight tasks before terminating"
+      - "Task-level timeout enforcement to prevent hung workers from blocking the queue"
+    use_cases:
+      - "Dispatch an image processing task immediately after user upload with progress tracking"
+      - "Schedule a nightly report generation job to run at 2 AM in each tenant's timezone"
+      - "Execute a multi-step order fulfillment workflow with compensation on partial failure"
+      - "Retry a failed payment charge with exponential backoff, route to dead-letter after 5 attempts"
+      - "Cancel a scheduled bulk email job before its execution window via the management API"
+      - "Monitor queue depth, worker utilization, and task failure rates through a real-time dashboard"
+    complexity_drivers:
+      - "Exactly-once semantics under concurrent worker execution and network partitions"
+      - "DAG-based workflow orchestration with compensation (saga pattern) on partial failures"
+      - "Priority scheduling without starvation of lower-priority tasks"

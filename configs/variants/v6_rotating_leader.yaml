@@ -44,6 +44,26 @@ variant:
       - participant_2
       - participant_3
     review_template: review/general_review.j2
+    coherence_phase_enabled: true
+    phases:
+      - name: Architecture
+        focus: "Focus on high-level architecture, component decomposition, and API design"
+        focus_dimensions:
+          - architecture
+          - api_design
+          - scalability
+      - name: Reliability
+        focus: "Focus on error handling, fault tolerance, data consistency, and security"
+        focus_dimensions:
+          - reliability
+          - security
+          - data_model
+      - name: Operations
+        focus: "Focus on operational concerns: monitoring, deployment, performance, and maintainability"
+        focus_dimensions:
+          - observability
+          - deployment
+          - performance
   token_budget:
-    estimated_input: 100000
-    estimated_output: 60000
+    estimated_input: 120000
+    estimated_output: 70000

@@ -1,0 +1,11 @@
+variant:
+  extends: v2_leader_reviewers.yaml
+  id: v2b
+  name: "Leader + Reviewers (Cross-Model)"
+  description: "Leader uses one model family, reviewers use another. Tests whether cross-model review catches different types of issues."
+  sub_variant: cross_model
+  agents:
+    leader:
+      model: vertex-gemini-2.5-pro
+    reviewers:
+      model: gpt-oss-120b

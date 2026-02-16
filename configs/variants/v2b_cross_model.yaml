@@ -8,4 +8,4 @@ variant:
     leader:
       model: vertex-gemini-2.5-pro
     reviewers:
-      model: gpt-oss-120b
+      model: vertex-gpt-oss-120b

@@ -47,6 +47,13 @@ def _ensure_registry() -> None:
     except ImportError:
         logger.debug("ollama_provider_not_available")
 
+    try:
+        from consortium.providers.vertex_openai import VertexOpenAIProvider
+
+        _PROVIDER_REGISTRY["google_vertex_openai"] = VertexOpenAIProvider
+    except ImportError:
+        logger.debug("vertex_openai_provider_not_available")
+
 
 def create_provider(
     model_config: ModelConfig,
@@ -87,6 +94,10 @@ def create_provider(
     if provider_name == "google_vertex":
         # Vertex AI uses ADC (gcloud auth), not an API key
         return provider_cls(model_config, vertexai=True)  # type: ignore[call-arg]
+
+    if provider_name == "google_vertex_openai":
+        # Vertex OpenAI-compatible endpoint uses gcloud auth internally
+        return provider_cls(model_config)  # type: ignore[call-arg]
 
     if api_key is not None:
         return provider_cls(model_config, api_key=api_key)  # type: ignore[call-arg]

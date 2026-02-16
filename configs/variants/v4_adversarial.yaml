@@ -19,7 +19,7 @@ variant:
         top_p: 1.0
     adversarial_reviewer:
       role: adversarial
-      model: gpt-oss-120b
+      model: vertex-gpt-oss-120b
       system_prompt_template: review/adversarial_review.j2
       parameters:
         temperature: 0.3

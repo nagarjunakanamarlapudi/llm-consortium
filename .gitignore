@@ -45,3 +45,5 @@ htmlcov/
 
 # ruff
 .ruff_cache/
+
+data/

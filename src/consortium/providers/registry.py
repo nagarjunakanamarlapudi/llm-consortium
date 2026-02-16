@@ -45,7 +45,7 @@ def _retryable_exceptions_for(
         except ImportError:
             pass
 
-    if provider == "openai":
+    if provider in ("openai", "google_vertex_openai"):
         try:
             from openai import APIStatusError
 

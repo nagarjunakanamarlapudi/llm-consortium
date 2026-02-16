@@ -49,7 +49,8 @@ def _extract_json(text: str) -> dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
-    msg = f"Could not parse JSON from evaluator response (length={len(text)})"
+    preview = text[:300].replace("\n", " ")
+    msg = f"Could not parse JSON from evaluator response (length={len(text)}): {preview}"
     raise ValueError(msg)
 
 
@@ -291,6 +292,18 @@ class EvaluationPipeline:
                 except Exception as e:
                     stats["failed"] += 1
                     d_log.error("evaluation_failed", error=str(e))
+                    # Dump failed response for later inspection
+                    try:
+                        import pathlib
+                        with pathlib.Path("/tmp/evaluation_failures.jsonl").open("a") as f:
+                            f.write(json.dumps({
+                                "design_id": design_id,
+                                "task": task_id,
+                                "error": str(e),
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            }) + "\n")
+                    except Exception:
+                        pass
 
                 progress.update(
                     ptask,
@@ -693,7 +706,7 @@ class EvaluationPipeline:
                     if rater_idx < len(scores):
                         row.append(scores[rater_idx])
                     else:
-                        row.append(None)  # missing value
+                        row.append(float("nan"))  # missing value
                 reliability_data.append(row)
 
             alpha = krippendorff.alpha(

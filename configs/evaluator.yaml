@@ -1,6 +1,7 @@
 evaluator:
   # model: "sonnet-4.5"
-  model: "gpt-oss-120b"
+  # model: "gpt-oss-120b"           # Ollama local
+  model: "vertex-gpt-oss-120b"       # Vertex AI (OpenAI-compatible)
 
   runs_per_design: 3
   aggregation: "median"
@@ -20,5 +21,5 @@ evaluator:
     human_validation_sample_size: 20
 
   batch:
-    enabled: true
-    batch_size: 200
+    enabled: false
+    batch_size: 20

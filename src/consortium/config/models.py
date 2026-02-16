@@ -52,6 +52,20 @@ class BatchingConfig(BaseModel, frozen=True):
     max_batch_size: int = 64
 
 
+class VertexBatchConfig(BaseModel, frozen=True):
+    """Configuration for Vertex AI native batch prediction.
+
+    When enabled, requests are submitted as a batch job via the Vertex AI
+    ``batchPredictionJobs`` API using JSONL files staged in GCS.
+    """
+
+    enabled: bool = False
+    gcs_bucket: str = ""  # GCS bucket for staging JSONL I/O
+    batch_location: str = "us-central1"  # batch API location (often differs from chat endpoint)
+    poll_interval_s: float = 30.0
+    poll_timeout_s: float = 3600.0
+
+
 class ModelConfig(BaseModel, frozen=True):
     """Configuration for a single LLM model."""
 
@@ -67,6 +81,7 @@ class ModelConfig(BaseModel, frozen=True):
     rate_limits: RateLimitConfig = RateLimitConfig()
     ollama: OllamaConfig | None = None
     batching: BatchingConfig | None = None
+    vertex_batch: VertexBatchConfig | None = None
 
 
 # ── Agent & Variant Config ───────────────────────────────────────────────────

@@ -23,7 +23,7 @@ variant:
       role: reviewer
       # model: llama3.2
       # model: gemini-3
-      model: gpt-oss-120b
+      model: vertex-gpt-oss-120b
       system_prompt_template: review/general_review.j2
       parameters:
         temperature: 0.5

@@ -21,7 +21,7 @@ variant:
           top_p: 1.0
       - id: participant_2
         role: designer
-        model: gpt-oss-120b
+        model: vertex-gpt-oss-120b
         system_prompt_template: generation/design_system.j2
         application_prompt_template: generation/design_application.j2
         parameters:

@@ -15,16 +15,22 @@ model:
     top_p: 1.0
 
   context_window: 1000000
-  supports_batch: false
+  supports_batch: true
   supports_caching: true
 
   batching:
     enabled: true
-    window_ms: 20000       # 20s window — serialize requests for low RPM
-    max_batch_size: 1      # one at a time to stay within RPM=5 quota
+    window_ms: 200000      # 200s window — collect requests for batch submission
+    max_batch_size: 100    # batch prediction supports large batches
+
+  vertex_batch:
+    enabled: true
+    gcs_bucket: "consortium-batch-staging"
+    poll_interval_s: 30
+    poll_timeout_s: 18000
 
   rate_limits:
-    # Ultra-conservative: SDK has internal retry that multiplies quota usage
-    # RPM=1 ensures even with SDK's ~3x internal retry, we stay under quota
-    requests_per_minute: 2
+    # Vertex batch prediction: rate limiter acquires per-request in batch,
+    # so RPM must be >= max_batch_size to avoid blocking batch handler.
+    requests_per_minute: 5000
     tokens_per_minute: 1000000

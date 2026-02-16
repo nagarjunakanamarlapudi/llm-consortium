@@ -21,7 +21,7 @@ variant:
       - id: security_specialist
         role: specialist_reviewer
         specialty: security
-        model: gpt-oss-120b
+        model: vertex-gpt-oss-120b
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - security_design
@@ -29,7 +29,7 @@ variant:
       - id: scalability_specialist
         role: specialist_reviewer
         specialty: scalability
-        model: gpt-oss-120b
+        model: vertex-gpt-oss-120b
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - scalability_strategy
@@ -37,7 +37,7 @@ variant:
       - id: reliability_specialist
         role: specialist_reviewer
         specialty: reliability
-        model: gpt-oss-120b
+        model: vertex-gpt-oss-120b
         system_prompt_template: review/specialist_review.j2
         focus_dimensions:
           - trade_off_awareness

@@ -21,7 +21,7 @@ model:
   batching:
     enabled: true
     window_ms: 200000
-    max_batch_size: 150
+    max_batch_size: 500
 
   rate_limits:
     requests_per_minute: 1000

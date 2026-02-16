@@ -41,7 +41,7 @@ variant:
           top_p: 1.0
     judge:
       role: judge
-      model: gpt-oss-120b
+      model: vertex-gpt-oss-120b
       system_prompt_template: debate/judge_ruling.j2
       parameters:
         temperature: 0.3

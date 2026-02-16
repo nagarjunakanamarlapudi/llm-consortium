@@ -51,3 +51,4 @@ experiment:
     max_retries: 3
     retry_backoff_base: 2.0
     timeout_seconds: 300
+    max_concurrent_runs: 500

@@ -9,6 +9,7 @@ from consortium.cli.db import app as db_app
 from consortium.cli.run import app as run_app
 from consortium.cli.timeline import app as timeline_app
 from consortium.cli.validate import app as validate_app
+from consortium.cli.verify import app as verify_app
 
 app = typer.Typer(
     name="consortium",
@@ -21,6 +22,7 @@ app.add_typer(validate_app, name="validate", help="Validate configuration files"
 app.add_typer(db_app, name="db", help="Database operations (init, stats, export)")
 app.add_typer(timeline_app, name="timeline", help="LLM call timeline views")
 app.add_typer(analyze_app, name="analyze", help="Statistical analysis and visualization")
+app.add_typer(verify_app, name="verify", help="E2E prompt and data verification checks")
 
 
 @app.callback()

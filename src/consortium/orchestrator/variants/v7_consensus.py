@@ -76,7 +76,7 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             converged = False
             try:
                 scores = await asyncio.gather(*(
-                    self._quick_evaluate(context, d, task, rubric_dims)
+                    self._quick_evaluate(context, d, task, rubric_dims, round_num)
                     for d in designs
                 ))
                 score_range = max(scores) - min(scores)
@@ -160,11 +160,15 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
         design: DesignArtifact,
         task: TaskConfig,
         rubric_dims,
+        convergence_round: int,
     ) -> float:
         """Quick single-call evaluation returning an overall score.
 
         Uses a simplified prompt to get a quick quality estimate (not the full
         3x evaluation). Used for epsilon-based convergence detection only.
+
+        *convergence_round* is the current convergence iteration, used for
+        trace recording (not the round the design was created in).
         """
         agent = self._get_agents("participants")[0]
 
@@ -187,7 +191,7 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             template_vars=template_vars,
             context=context,
             step="quick_eval",
-            round_num=design.round,
+            round_num=convergence_round,
         )
 
         # Extract a numeric score from the response
@@ -267,13 +271,16 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
 
         match = _CONVERGENCE_PATTERN.search(response.content)
         if match and match.group(1).upper() == "CONVERGED":
+            # Strip the STATUS marker line and any leading meta-commentary
+            # so the stored design text contains only the actual design.
+            design_text = _CONVERGENCE_PATTERN.sub("", response.content).strip()
             synthesis = DA(
                 design_id=uuid.uuid4().hex,
                 run_id=context.run_id,
                 round=round_num,
                 agent_role=agent.role,
                 agent_id=agent.agent_id,
-                full_text=response.content,
+                full_text=design_text,
                 token_count=response.output_tokens,
                 is_final=False,
                 created_at=datetime.now(UTC),

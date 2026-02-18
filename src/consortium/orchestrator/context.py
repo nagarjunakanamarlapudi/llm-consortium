@@ -170,10 +170,14 @@ class RunContext:
     def compute_seed(self, agent_id: str, round_num: int) -> int:
         """Compute a deterministic seed for an LLM call.
 
-        Combines the run_id, agent_id, and round number via hashing
-        to produce a reproducible seed unique to each call.
+        Uses the stable identifiers (variant, task, repetition, agent, round)
+        rather than the timestamp-containing ``run_id`` so that re-running the
+        same configuration produces identical seeds.
         """
         import hashlib
 
-        combined = f"{self.run_id}_{agent_id}_{round_num}"
+        combined = (
+            f"{self.variant_id}_{self.task_id}_{self.repetition}"
+            f"_{agent_id}_{round_num}"
+        )
         return int(hashlib.md5(combined.encode()).hexdigest(), 16) % (2**31)

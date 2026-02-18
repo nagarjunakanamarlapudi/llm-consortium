@@ -48,7 +48,13 @@ class LLMProvider(abc.ABC):
 
     @abc.abstractmethod
     async def complete_batch(self, requests: list[LLMRequest]) -> list[LLMResponse]:
-        """Submit requests via batch API. Blocks until all results are ready."""
+        """Submit requests via batch API. Blocks until all results are ready.
+
+        Implementations **must** return responses in the same order as the
+        input *requests* — i.e. ``responses[i]`` corresponds to
+        ``requests[i]``.  Callers (``BatchCollector``, ``BatchingProvider``,
+        ``EvaluationPipeline``) depend on this positional correspondence.
+        """
         ...
 
     @abc.abstractmethod

@@ -41,6 +41,7 @@ _BATCH_TERMINAL_STATES = frozenset({"ended", "canceled", "expired"})
 
 
 _BATCH_POLL_INTERVAL_SECONDS = 30
+_BATCH_POLL_MAX_SECONDS = 86_400  # 24 hours
 
 
 def _is_retryable(exc: BaseException) -> bool:
@@ -112,6 +113,7 @@ class AnthropicProvider(LLMProvider):
             latency_ms=latency_ms,
             provider_rpm_limit=rpm_limit,
             provider_tpm_limit=tpm_limit,
+            metadata=request.metadata,
         )
 
     async def complete_batch(self, requests: list[LLMRequest]) -> list[LLMResponse]:
@@ -186,7 +188,7 @@ class AnthropicProvider(LLMProvider):
 
         # Map results back to the original request order.
         responses: list[LLMResponse] = []
-        for item in batch_items:
+        for idx, item in enumerate(batch_items):
             cid = item["custom_id"]
             result = results_by_custom_id.get(cid)
             if result is None:
@@ -204,6 +206,7 @@ class AnthropicProvider(LLMProvider):
                 message,
                 latency_ms=0.0,  # Batch has no meaningful per-request latency.
                 batch_id=batch_id,
+                metadata=requests[idx].metadata,
             )
             responses.append(llm_response)
 
@@ -264,6 +267,7 @@ class AnthropicProvider(LLMProvider):
         batch_id: str | None = None,
         provider_rpm_limit: int | None = None,
         provider_tpm_limit: int | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> LLMResponse:
         """Convert an Anthropic Message object into our canonical LLMResponse."""
         content_parts = [block.text for block in message.content if block.type == "text"]
@@ -293,6 +297,7 @@ class AnthropicProvider(LLMProvider):
             batch_id=batch_id,
             provider_rpm_limit=provider_rpm_limit,
             provider_tpm_limit=provider_tpm_limit,
+            metadata=metadata or {},
         )
 
     def _compute_cost(
@@ -319,6 +324,7 @@ class AnthropicProvider(LLMProvider):
 
     async def _poll_batch(self, batch_id: str) -> Any:
         """Poll the batch until it reaches a terminal state."""
+        elapsed = 0.0
         while True:
             batch = await self._client.messages.batches.retrieve(batch_id)
             status = batch.processing_status
@@ -326,11 +332,16 @@ class AnthropicProvider(LLMProvider):
                 "anthropic.batch.poll",
                 batch_id=batch_id,
                 status=status,
+                elapsed_s=elapsed,
                 counts=getattr(batch, "request_counts", None),
             )
             if status in _BATCH_TERMINAL_STATES:
                 return batch
+            if elapsed >= _BATCH_POLL_MAX_SECONDS:
+                msg = f"Batch {batch_id} did not complete within {_BATCH_POLL_MAX_SECONDS}s"
+                raise TimeoutError(msg)
             await asyncio.sleep(_BATCH_POLL_INTERVAL_SECONDS)
+            elapsed += _BATCH_POLL_INTERVAL_SECONDS
 
     async def _fallback_concurrent(self, requests: list[LLMRequest]) -> list[LLMResponse]:
         """Execute requests concurrently via real-time API when batch is unavailable."""

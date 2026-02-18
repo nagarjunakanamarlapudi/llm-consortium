@@ -138,7 +138,7 @@ class VertexOpenAIProvider(OpenAIProvider):
         batch_id = uuid.uuid4().hex[:12]
         log = logger.bind(batch_id=batch_id, batch_size=len(requests))
 
-        log.warning(
+        log.info(
             "vertex_batch.step1_building_jsonl",
             batch_size=len(requests),
             location=location,
@@ -164,7 +164,7 @@ class VertexOpenAIProvider(OpenAIProvider):
             lines.append(line)
 
         jsonl_bytes = ("\n".join(lines) + "\n").encode()
-        log.warning(
+        log.info(
             "vertex_batch.step1_jsonl_built",
             size_bytes=len(jsonl_bytes),
             requests=len(lines),
@@ -173,7 +173,7 @@ class VertexOpenAIProvider(OpenAIProvider):
         # 2. Upload JSONL to GCS ────────────────────────────────────────────
         gcs_prefix = f"vertex_batch/{batch_id}"
         input_blob = f"{gcs_prefix}/input.jsonl"
-        log.warning(
+        log.info(
             "vertex_batch.step2_uploading_gcs",
             bucket=vb.gcs_bucket,
             blob=input_blob,
@@ -182,14 +182,14 @@ class VertexOpenAIProvider(OpenAIProvider):
             _gcs_upload, vb.gcs_bucket, input_blob, jsonl_bytes,
         )
         output_uri = f"gs://{vb.gcs_bucket}/{gcs_prefix}/output/"
-        log.warning(
+        log.info(
             "vertex_batch.step2_gcs_uploaded",
             input_uri=input_uri,
             output_uri=output_uri,
         )
 
         # 3. Create batch prediction job ────────────────────────────────────
-        log.warning(
+        log.info(
             "vertex_batch.step3_creating_job",
             project=project,
             location=location,
@@ -205,7 +205,7 @@ class VertexOpenAIProvider(OpenAIProvider):
         )
         job_name = job["name"]
         log = log.bind(job_name=job_name)
-        log.warning("vertex_batch.step3_job_created", job_name=job_name)
+        log.info("vertex_batch.step3_job_created", job_name=job_name)
 
         # 4. Poll until completion ──────────────────────────────────────────
         final_job = await _poll_batch_job(
@@ -221,7 +221,7 @@ class VertexOpenAIProvider(OpenAIProvider):
             msg = f"Batch job {job_name} ended with state '{state}': {error}"
             raise RuntimeError(msg)
 
-        log.warning("vertex_batch.step4_job_succeeded")
+        log.info("vertex_batch.step4_job_succeeded")
 
         # 5. Download and parse results ─────────────────────────────────────
         output_blobs = await asyncio.to_thread(
@@ -297,7 +297,7 @@ class VertexOpenAIProvider(OpenAIProvider):
 
         missing = [i for i, r in enumerate(responses) if r is None]
         if missing:
-            log.warning(
+            log.error(
                 "vertex_batch.missing_results",
                 count=len(missing),
                 total=len(responses),
@@ -307,7 +307,7 @@ class VertexOpenAIProvider(OpenAIProvider):
             raise RuntimeError(msg)
 
         parsed = sum(1 for r in responses if r is not None)
-        log.warning("vertex_batch.step5_results_parsed", parsed=parsed, total=len(responses))
+        log.info("vertex_batch.step5_results_parsed", parsed=parsed, total=len(responses))
         return responses  # type: ignore[return-value]
 
     def supports_batch(self) -> bool:

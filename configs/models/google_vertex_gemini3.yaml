@@ -25,7 +25,7 @@ model:
 
   vertex_batch:
     enabled: true
-    gcs_bucket: "consortium-batch-staging"
+    gcs_bucket: "consortium-batch-staging-naga"
     poll_interval_s: 30
     poll_timeout_s: 18000
 

@@ -291,19 +291,12 @@ class EvaluationPipeline:
 
                 except Exception as e:
                     stats["failed"] += 1
-                    d_log.error("evaluation_failed", error=str(e))
-                    # Dump failed response for later inspection
-                    try:
-                        import pathlib
-                        with pathlib.Path("/tmp/evaluation_failures.jsonl").open("a") as f:
-                            f.write(json.dumps({
-                                "design_id": design_id,
-                                "task": task_id,
-                                "error": str(e),
-                                "timestamp": datetime.now(UTC).isoformat(),
-                            }) + "\n")
-                    except Exception:
-                        pass
+                    d_log.error(
+                        "evaluation_failed",
+                        error=str(e),
+                        design_id=design_id,
+                        task=task_id,
+                    )
 
                 progress.update(
                     ptask,
@@ -498,8 +491,10 @@ class EvaluationPipeline:
                         got=len(evaluations),
                         expected=runs_per_design,
                     )
-
-                if evaluations:
+                    # Don't compute medians from incomplete data — count as
+                    # failed so the design can be re-evaluated later.
+                    stats["failed"] += 1
+                elif evaluations:
                     try:
                         self._compute_and_persist_medians(
                             design_id=design_id,
@@ -602,18 +597,22 @@ class EvaluationPipeline:
         rubric_config,
     ) -> None:
         """Compute median scores, disagreement flags, and blocker counts across evaluator runs."""
-        # Collect per-dimension scores across all evaluator runs
+        # Collect per-dimension scores across all evaluator runs.
+        # Use a dict keyed by (rater_index, dimension) so that missing
+        # dimensions in one rater don't misalign other raters' scores.
         dim_scores: dict[str, list[float]] = {}
+        dim_scores_by_rater: dict[str, dict[int, float]] = {}
         overall_scores: list[float] = []
 
         # Extract critical blockers from evaluations
         all_blockers: list[str] = []
-        for evaluation in evaluations:
+        for rater_idx, evaluation in enumerate(evaluations):
             overall_scores.append(evaluation.get("overall_score", 0.0))
             for ds in evaluation.get("dimension_scores", []):
                 dim_id = ds.get("dimension", "")
                 score = ds.get("score", 0.0)
                 dim_scores.setdefault(dim_id, []).append(score)
+                dim_scores_by_rater.setdefault(dim_id, {})[rater_idx] = score
                 # Extract blockers from each dimension score
                 blockers = ds.get("blockers", [])
                 if isinstance(blockers, list):
@@ -638,8 +637,11 @@ class EvaluationPipeline:
 
         overall_median = statistics.median(overall_scores) if overall_scores else 0.0
 
-        # Compute Krippendorff's alpha — use proper library if available
-        alpha = self._compute_krippendorff_alpha(dim_scores)
+        # Compute Krippendorff's alpha — use properly indexed scores so
+        # partial dimension failures don't misalign the reliability matrix.
+        alpha = self._compute_krippendorff_alpha(
+            dim_scores_by_rater, n_raters=len(evaluations),
+        )
 
         # Persist with blocker information
         blocker_count = len(all_blockers)
@@ -675,21 +677,24 @@ class EvaluationPipeline:
         )
 
     @staticmethod
-    def _compute_krippendorff_alpha(dim_scores: dict[str, list[float]]) -> float | None:
+    def _compute_krippendorff_alpha(
+        dim_scores_by_rater: dict[str, dict[int, float]],
+        n_raters: int,
+    ) -> float | None:
         """Compute Krippendorff's alpha for inter-rater reliability.
 
         Uses the ``krippendorff`` package if available, otherwise falls back
         to a variance-based proxy.
 
-        The reliability data matrix has raters (evaluator runs) as rows and
-        items (rubric dimensions) as columns.
+        *dim_scores_by_rater* maps dimension_id → {rater_index: score}.
+        Using explicit rater indices ensures the reliability matrix stays
+        aligned even when some dimensions are missing for a rater (partial
+        parse failures).
         """
-        if not dim_scores:
+        if not dim_scores_by_rater:
             return None
 
-        # Need at least 2 raters and 2 items
-        n_raters = max((len(scores) for scores in dim_scores.values()), default=0)
-        if n_raters < 2 or len(dim_scores) < 2:
+        if n_raters < 2 or len(dim_scores_by_rater) < 2:
             return None
 
         try:
@@ -697,14 +702,14 @@ class EvaluationPipeline:
 
             # Build reliability data matrix: raters × items (dimensions)
             # Each row is a rater, each column is a dimension
-            dim_ids = sorted(dim_scores.keys())
+            dim_ids = sorted(dim_scores_by_rater.keys())
             reliability_data = []
             for rater_idx in range(n_raters):
                 row = []
                 for dim_id in dim_ids:
-                    scores = dim_scores[dim_id]
-                    if rater_idx < len(scores):
-                        row.append(scores[rater_idx])
+                    rater_map = dim_scores_by_rater[dim_id]
+                    if rater_idx in rater_map:
+                        row.append(rater_map[rater_idx])
                     else:
                         row.append(float("nan"))  # missing value
                 reliability_data.append(row)
@@ -721,7 +726,8 @@ class EvaluationPipeline:
             within_var_sum = 0.0
             n_dims = 0
 
-            for scores in dim_scores.values():
+            for rater_map in dim_scores_by_rater.values():
+                scores = list(rater_map.values())
                 if len(scores) < 2:
                     continue
                 all_scores.extend(scores)

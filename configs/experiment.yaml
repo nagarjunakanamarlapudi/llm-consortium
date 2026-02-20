@@ -45,8 +45,8 @@ experiment:
     fallback_to_realtime: true
 
   limits:
-    max_tokens_per_run: 500000
-    max_cost_per_run_usd: 2.00
+    max_tokens_per_run: 1000000
+    max_cost_per_run_usd: 4.00
     max_total_cost_usd: 500.00
     max_retries: 3
     retry_backoff_base: 2.0

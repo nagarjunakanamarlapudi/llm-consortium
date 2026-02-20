@@ -17,7 +17,8 @@ from consortium.orchestrator.context import DesignArtifact, RunContext
 from consortium.orchestrator.variants.base import VariantOrchestrator
 
 _CONVERGENCE_PATTERN = re.compile(
-    r"STATUS:\s*(CONVERGED|NOT_CONVERGED)", re.IGNORECASE,
+    r"STATUS:\s*(CONVERGED|NOT_CONVERGED)",
+    re.IGNORECASE,
 )
 
 
@@ -40,31 +41,39 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
 
         # Round 0: independent parallel generation
         self._log.info("round_start", round=0, step="generation", count=len(participants))
-        designs = list(await asyncio.gather(*(
-            participant.act(
-                context=context,
-                round_num=0,
-                task=task,
-                rubric_dimensions=rubric_dims,
+        designs = list(
+            await asyncio.gather(
+                *(
+                    participant.act(
+                        context=context,
+                        round_num=0,
+                        task=task,
+                        rubric_dimensions=rubric_dims,
+                    )
+                    for participant in participants
+                )
             )
-            for participant in participants
-        )))
+        )
 
         # Convergence rounds
         for round_num in range(1, self.config.workflow.max_rounds):
             # Each participant revises seeing all other designs
             self._log.info("round_start", round=round_num, step="revision")
-            new_designs = list(await asyncio.gather(*(
-                participant.act(
-                    context=context,
-                    round_num=round_num,
-                    task=task,
-                    rubric_dimensions=rubric_dims,
-                    previous_design=designs[i],
-                    reviews=self._designs_as_reviews(designs, exclude_idx=i),
+            new_designs = list(
+                await asyncio.gather(
+                    *(
+                        participant.act(
+                            context=context,
+                            round_num=round_num,
+                            task=task,
+                            rubric_dimensions=rubric_dims,
+                            previous_design=designs[i],
+                            reviews=self._designs_as_reviews(designs, exclude_idx=i),
+                        )
+                        for i, participant in enumerate(participants)
+                    )
                 )
-                for i, participant in enumerate(participants)
-            )))
+            )
 
             designs = new_designs
 
@@ -75,10 +84,12 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             # Epsilon-based convergence: quick-evaluate all designs
             converged = False
             try:
-                scores = await asyncio.gather(*(
-                    self._quick_evaluate(context, d, task, rubric_dims, round_num)
-                    for d in designs
-                ))
+                scores = await asyncio.gather(
+                    *(
+                        self._quick_evaluate(context, d, task, rubric_dims, round_num)
+                        for d in designs
+                    )
+                )
                 score_range = max(scores) - min(scores)
                 self._log.info(
                     "epsilon_convergence_check",
@@ -132,7 +143,9 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
         return final
 
     def _designs_as_reviews(
-        self, designs: list[DesignArtifact], exclude_idx: int,
+        self,
+        designs: list[DesignArtifact],
+        exclude_idx: int,
     ) -> list:
         """Convert peer designs to ReviewArtifact-like objects for the designer's reviews param."""
         from consortium.orchestrator.context import ReviewArtifact
@@ -177,14 +190,13 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             "system_name": task.variables.system_name,
             "complexity": task.complexity,
             "design_type": task.design_type,
-            "rubric_dimensions": (
-                [d.model_dump() for d in rubric_dims] if rubric_dims else None
-            ),
+            "rubric_dimensions": ([d.model_dump() for d in rubric_dims] if rubric_dims else None),
             "quick_eval": True,
         }
 
-        # Use the convergence template for quick eval, or fall back to review
-        template = self.config.workflow.convergence_template or self.config.workflow.review_template or "review/general_review.j2"
+        # Use the review template for single-design evaluation (NOT convergence,
+        # which expects a list of designs for multi-design consensus checks).
+        template = self.config.workflow.review_template or "review/general_review.j2"
 
         response = await agent._call_llm(
             template=template,
@@ -226,7 +238,14 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
         return 5.0
 
     async def _check_convergence(
-        self, *, context, round_num, task, designs, rubric_dims, template,
+        self,
+        *,
+        context,
+        round_num,
+        task,
+        designs,
+        rubric_dims,
+        template,
     ) -> tuple[bool, DesignArtifact | None]:
         """Render convergence template and check for CONVERGED status."""
         from consortium.orchestrator.context import ConversationTurn, DesignArtifact as DA
@@ -238,16 +257,12 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
         agent = self._get_agents("participants")[0]
 
         template_vars = {
-            "designs": [
-                {"agent_id": d.agent_id, "text": d.full_text} for d in designs
-            ],
+            "designs": [{"agent_id": d.agent_id, "text": d.full_text} for d in designs],
             "system_name": task.variables.system_name,
             "complexity": task.complexity,
             "design_type": task.design_type,
             "round": round_num,
-            "rubric_dimensions": (
-                [d.model_dump() for d in rubric_dims] if rubric_dims else None
-            ),
+            "rubric_dimensions": ([d.model_dump() for d in rubric_dims] if rubric_dims else None),
         }
 
         response = await agent._call_llm(

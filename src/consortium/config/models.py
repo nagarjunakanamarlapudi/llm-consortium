@@ -63,7 +63,7 @@ class VertexBatchConfig(BaseModel, frozen=True):
     gcs_bucket: str = ""  # GCS bucket for staging JSONL I/O
     batch_location: str = "us-central1"  # batch API location (often differs from chat endpoint)
     poll_interval_s: float = 30.0
-    poll_timeout_s: float = 3600.0
+    poll_timeout_s: float = 36000.0
 
 
 class ModelConfig(BaseModel, frozen=True):

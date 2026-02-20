@@ -31,4 +31,4 @@ model:
     enabled: true
     gcs_bucket: "consortium-batch-staging-naga"
     poll_interval_s: 30
-    poll_timeout_s: 3600
+    poll_timeout_s: 36000

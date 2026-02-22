@@ -1,0 +1,33 @@
+variant:
+  id: v4b
+  name: Structural Adversarial Reviewer
+  description: "A principal-architect-level adversarial reviewer that demands structural rethinking rather than local patching. Rejects textbook designs, requires architectural justification against alternatives, and issues rewrite mandates for sections that need fundamental redesign."
+  matrix_position:
+    authority: centralized
+    roles: homogeneous
+    dynamics: adversarial
+  sub_variant: b
+  agents:
+    leader:
+      role: designer
+      model: vertex-gemini-2.5-pro
+      system_prompt_template: generation/design_system_v4b.j2
+      application_prompt_template: generation/design_application.j2
+      parameters:
+        temperature: 0.7
+        max_tokens: 16384
+        top_p: 1.0
+    adversarial_reviewer:
+      role: adversarial
+      model: vertex-gpt-oss-120b
+      system_prompt_template: review/structural_adversarial_review.j2
+      parameters:
+        temperature: 0.5
+        max_tokens: 12288
+        top_p: 1.0
+  workflow:
+    max_rounds: 5
+    include_rubric_in_prompt: true
+  token_budget:
+    estimated_input: 120000
+    estimated_output: 80000

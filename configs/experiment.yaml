@@ -10,12 +10,13 @@ experiment:
     - v1_baseline
     - v1a_single_shot
     - v2a_same_model
-    - v2b_cross_model
+    # - v2b_cross_model
     - v2c_multi_model
     - v3a_naive_merge
     - v3b_rubric_merge
     - v3c_dialectical_merge
     - v4_adversarial
+    - v4b_structural_adversarial
     - v5_specialist_panel
     - v6_rotating_leader
     - v7_consensus

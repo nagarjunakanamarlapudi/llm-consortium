@@ -1,7 +1,7 @@
 model:
-  id: "vertex-gpt-oss-120b"
+  id: "vertex-llama4-maverick"
   provider: "google_vertex_openai"
-  api_model: "openai/gpt-oss-120b-maas"
+  api_model: "meta/llama-4-maverick-17b-128e-instruct-maas"
 
   pricing:
     input: 0.09
@@ -21,7 +21,7 @@ model:
   batching:
     enabled: true
     window_ms: 50000
-    max_batch_size: 500
+    max_batch_size: 100
 
   rate_limits:
     requests_per_minute: 1000
@@ -30,5 +30,6 @@ model:
   vertex_batch:
     enabled: true
     gcs_bucket: "consortium-batch-staging2"
+    batch_location: "us-east5"
     poll_interval_s: 30
     poll_timeout_s: 36000

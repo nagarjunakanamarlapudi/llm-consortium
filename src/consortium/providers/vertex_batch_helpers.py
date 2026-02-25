@@ -107,8 +107,9 @@ async def _create_batch_job(
         project: GCP project ID.
         location: Region (e.g. ``us-central1``).
         model_path: Full model resource path, e.g.
-            ``publishers/google/models/gemini-2.5-pro`` or
-            ``publishers/openai/models/gpt-oss-120b-maas``.
+            ``publishers/google/models/gemini-2.5-pro``,
+            ``publishers/openai/models/gpt-oss-120b-maas``, or
+            ``publishers/meta/models/llama-4-maverick-17b-128e-instruct-maas``.
         input_uri: GCS URI of the input JSONL file.
         output_uri: GCS URI prefix for output.
         display_name: Human-readable job name.

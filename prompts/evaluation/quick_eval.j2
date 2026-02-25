@@ -1,0 +1,32 @@
+You are a design quality evaluator. Rate the following {{ "system" if design_type == "system" else "application" }} design on overall quality.
+
+## Design Under Review
+
+{{ design_text }}
+
+## Task Context
+
+**System:** {{ system_name }}
+**Complexity:** {{ complexity }}
+
+{% if rubric_dimensions %}
+## Evaluation Dimensions
+
+Consider these dimensions when scoring:
+
+{% for dim in rubric_dimensions %}
+- **{{ dim.name }}** (weight: {{ dim.weight }}): {{ dim.description }}
+{% endfor %}
+{% endif %}
+
+## Instructions
+
+Provide a single overall quality score from 0 to 10 (decimals allowed).
+
+Respond with ONLY a JSON object in this exact format:
+
+```json
+{"overall_score": <number>}
+```
+
+Do not include any other text, explanation, or commentary.

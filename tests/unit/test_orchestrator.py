@@ -400,7 +400,72 @@ class TestV8StructuredDebate:
         assert result.agent_id == "judge"
 
 
-# ── Base Class Tests ──────────────────────────────────────────────────────────
+# ── V7 Consensus Convergence Tests ───────────────────────────────────────────
+
+
+class TestV7Consensus:
+    def test_epsilon_convergence(self) -> None:
+        """When quick-eval scores are within epsilon, pick the best design."""
+        config = VariantConfig(
+            id="v7",
+            name="Consensus",
+            workflow=WorkflowConfig(max_rounds=3, convergence_epsilon=0.5),
+        )
+
+        participants = [_mock_designer_agent(f"p_{i}") for i in range(3)]
+
+        # Mock _call_llm to return a JSON score for quick_eval
+        for p in participants:
+            call_count = 0
+
+            async def mock_call_llm(*, _agent=p, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                resp = MagicMock()
+                resp.content = '{"overall_score": 8.0}'
+                resp.model = "mock-model"
+                resp.input_tokens = 50
+                resp.output_tokens = 20
+                resp.cached_input_tokens = 0
+                resp.cost_usd = 0.0
+                resp.latency_ms = 5.0
+                resp.batch_id = None
+                return resp
+
+            p._call_llm = mock_call_llm
+
+        orch = create_variant_orchestrator(config, {"participants": participants})
+
+        ctx = _run_context()
+        result = asyncio.get_event_loop().run_until_complete(orch.execute(_task_config(), ctx))
+
+        # All scores are 8.0 → range=0 < epsilon=0.5 → converge in round 1
+        assert result.is_final is True
+
+    def test_fallback_to_max_rounds(self) -> None:
+        """When quick-eval raises, and no convergence template, exhaust rounds."""
+        config = VariantConfig(
+            id="v7",
+            name="Consensus",
+            workflow=WorkflowConfig(max_rounds=2, convergence_epsilon=0.1),
+        )
+
+        participants = [_mock_designer_agent(f"p_{i}") for i in range(2)]
+
+        # Mock _call_llm to raise so epsilon path fails every round
+        for p in participants:
+            async def mock_call_llm_fail(**kwargs):
+                raise RuntimeError("template error")
+
+            p._call_llm = mock_call_llm_fail
+
+        orch = create_variant_orchestrator(config, {"participants": participants})
+
+        ctx = _run_context()
+        result = asyncio.get_event_loop().run_until_complete(orch.execute(_task_config(), ctx))
+
+        # Falls through all rounds → returns designs[0]
+        assert result.is_final is True
 
 
 class TestVariantOrchestratorBase:

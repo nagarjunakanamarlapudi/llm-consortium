@@ -177,8 +177,8 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
     ) -> float:
         """Quick single-call evaluation returning an overall score.
 
-        Uses a simplified prompt to get a quick quality estimate (not the full
-        3x evaluation). Used for epsilon-based convergence detection only.
+        Uses a dedicated quick-eval template that returns only a JSON score.
+        Used for epsilon-based convergence detection only.
 
         *convergence_round* is the current convergence iteration, used for
         trace recording (not the round the design was created in).
@@ -191,28 +191,18 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             "complexity": task.complexity,
             "design_type": task.design_type,
             "rubric_dimensions": ([d.model_dump() for d in rubric_dims] if rubric_dims else None),
-            "quick_eval": True,
         }
 
-        # Use the review template for single-design evaluation (NOT convergence,
-        # which expects a list of designs for multi-design consensus checks).
-        template = self.config.workflow.review_template or "review/general_review.j2"
-
         response = await agent._call_llm(
-            template=template,
+            template="evaluation/quick_eval.j2",
             template_vars=template_vars,
             context=context,
             step="quick_eval",
             round_num=convergence_round,
         )
 
-        # Extract a numeric score from the response
-        # Look for patterns like "Score: 7.5" or "Overall: 8/10" or JSON with overall_score
-        import re
-
-        # Try JSON extraction first
+        # Extract overall_score from JSON response
         try:
-            # Look for JSON block
             json_match = re.search(r'\{[^}]*"overall_score"[^}]*\}', response.content)
             if json_match:
                 data = json.loads(json_match.group())
@@ -220,7 +210,7 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
         except (json.JSONDecodeError, KeyError, ValueError):
             pass
 
-        # Try simple score patterns
+        # Fallback: try simple score patterns
         score_patterns = [
             r"(?:overall|total|final)\s*(?:score|rating)?:?\s*(\d+(?:\.\d+)?)\s*(?:/\s*10)?",
             r"(\d+(?:\.\d+)?)\s*/\s*10",
@@ -230,7 +220,6 @@ class V7ConsensusOrchestrator(VariantOrchestrator):
             match = re.search(pattern, response.content, re.IGNORECASE)
             if match:
                 score = float(match.group(1))
-                # Normalize to 0-10 scale if needed
                 return min(score, 10.0)
 
         # Default: return 5.0 (neutral score) to avoid breaking convergence

@@ -1,4 +1,4 @@
-"""Google Vertex AI provider for OpenAI-compatible models (e.g. GPT-OSS).
+"""Google Vertex AI provider for OpenAI-compatible models (e.g. GPT-OSS, Meta Llama).
 
 Vertex AI serves certain third-party models via an OpenAI-compatible
 ``/chat/completions`` endpoint.  This provider reuses the OpenAI SDK
@@ -79,13 +79,17 @@ def _build_base_url() -> str:
 
 
 class VertexOpenAIProvider(OpenAIProvider):
-    """Vertex AI provider for OpenAI-compatible models (GPT-OSS, etc.).
+    """Vertex AI provider for OpenAI-compatible models (GPT-OSS, Meta Llama, etc.).
 
     Inherits all logic from :class:`OpenAIProvider`; only the client
     construction differs (custom base_url + GCP bearer token via ADC).
 
     When ``vertex_batch`` is configured and enabled, ``complete_batch()``
     uses the Vertex AI batch prediction API for 50% cost savings.
+
+    Supported ``api_model`` formats:
+        - ``openai/gpt-oss-120b-maas`` → publisher ``openai``
+        - ``meta/llama-4-maverick-17b-128e-instruct-maas`` → publisher ``meta``
     """
 
     def __init__(self, config: ModelConfig) -> None:
@@ -198,7 +202,7 @@ class VertexOpenAIProvider(OpenAIProvider):
         job = await _create_batch_job(
             project=project,
             location=location,
-            model_path=f"publishers/openai/models/{self._config.api_model.removeprefix('openai/')}",
+            model_path=self._build_batch_model_path(),
             input_uri=input_uri,
             output_uri=output_uri,
             display_name=f"consortium-{batch_id}",
@@ -273,7 +277,7 @@ class VertexOpenAIProvider(OpenAIProvider):
                 input_tokens = usage.get("prompt_tokens", 0)
                 output_tokens = usage.get("completion_tokens", 0)
                 cached_input_tokens = (
-                    usage.get("prompt_tokens_details", {}).get("cached_tokens", 0)
+                    (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
                 )
 
                 responses[idx] = LLMResponse(
@@ -309,6 +313,25 @@ class VertexOpenAIProvider(OpenAIProvider):
         parsed = sum(1 for r in responses if r is not None)
         log.info("vertex_batch.step5_results_parsed", parsed=parsed, total=len(responses))
         return responses  # type: ignore[return-value]
+
+    def _build_batch_model_path(self) -> str:
+        """Derive the Vertex AI batch prediction model resource path.
+
+        Converts ``api_model`` to the ``publishers/{publisher}/models/{model}``
+        format required by the Vertex AI ``batchPredictionJobs`` API.
+
+        Examples:
+            - ``openai/gpt-oss-120b-maas`` → ``publishers/openai/models/gpt-oss-120b-maas``
+            - ``meta/llama-4-maverick-17b-128e-instruct-maas`` → ``publishers/meta/models/llama-4-maverick-17b-128e-instruct-maas``
+            - ``gpt-oss-120b-maas`` (no prefix) → ``publishers/openai/models/gpt-oss-120b-maas``
+        """
+        api_model = self._config.api_model
+        if "/" in api_model:
+            publisher, model_name = api_model.split("/", 1)
+        else:
+            # Legacy: bare model names default to the openai publisher
+            publisher, model_name = "openai", api_model
+        return f"publishers/{publisher}/models/{model_name}"
 
     def supports_batch(self) -> bool:
         """Vertex OpenAI endpoint supports batch when configured."""

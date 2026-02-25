@@ -20,12 +20,12 @@ model:
 
   batching:
     enabled: true
-    window_ms: 200000      # 200s window — collect requests for batch submission
-    max_batch_size: 100    # batch prediction supports large batches
+    window_ms: 50000 # 50s window — collect requests for batch submission
+    max_batch_size: 100 # batch prediction supports large batches
 
   vertex_batch:
     enabled: true
-    gcs_bucket: "consortium-batch-staging-naga"
+    gcs_bucket: "consortium-batch-staging2"
     poll_interval_s: 30
     poll_timeout_s: 18000
 

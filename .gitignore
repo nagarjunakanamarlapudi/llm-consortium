@@ -47,3 +47,6 @@ htmlcov/
 .ruff_cache/
 
 data/
+
+# In-repo data backups / snapshots (large, never commit)
+/backups/

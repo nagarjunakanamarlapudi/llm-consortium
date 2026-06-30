@@ -41,26 +41,31 @@ Both run on the full 164-problem set; McNemar is exact, paired per-problem vs ba
 | Condition | Topology | pass@1 | 95% CI | vs sonnet (fix / regress) | McNemar p |
 |---|---|---:|---|---|---:|
 | base-sonnet | single-shot | 94.5% | [90.9, 97.6] | — | — |
-| **c-xreview** | sonnet writes → gpt-oss reviews → sonnet revises | **87.8%** | [82.9, 92.7] | +3 / −14 | **0.0127** |
-| c-adv* | sonnet writes → gpt-5.2 attacks → sonnet revises | 91.0%* | [83.6, 97.0] | +2 / −5* | 0.45* |
-
-\* c-adv on a partial 67/164 at time of writing (run still completing); refreshed on the final re-grade.
+| **c-xreview** | sonnet writes → gpt-oss reviews → sonnet revises | **87.8%** | [82.9, 92.7] | +3 / −14 | **0.013** |
+| c-adv | sonnet writes → gpt-5.2 attacks → sonnet revises | 91.5% | [87.2, 95.7] | +4 / −9 | 0.27 |
 
 **Headline finding — collaboration *hurts* at ceiling (the "Frankenstein effect for code").**
-Cross-model review (`c-xreview`) significantly *degrades* a strong model: it
-**regressed 14** problems sonnet had solved while fixing only **3** (net −11,
-McNemar p = 0.013). The cause is **over-revision** — verified manually: every
-regression still contained valid extracted code (0 extraction failures), and the
-revisions systematically *bloated* correct solutions (e.g. HumanEval/63: 214 →
-761 chars) with extra handling that introduced bugs. When the base solution is
-already correct (94.5% baseline), a reviewer's "improvements" have little to fix
-and much to break.
+Both heterogeneous topologies *regress* relative to the strong single model, and
+cross-model review does so significantly: `c-xreview` falls **94.5% → 87.8%**,
+**breaking 14** problems sonnet had solved while fixing only **3** (McNemar
+p = 0.013). The cause is **over-revision** — verified manually: every regression
+still contained valid extracted code (0 extraction failures), and revisions
+systematically *bloated* correct solutions (e.g. HumanEval/63: 214 → 761 chars)
+with extra handling that introduced bugs.
+
+`c-adv` regresses less (91.5%, n.s.) for a structural reason: its adversarial
+**accept/reject gate can stop early** — when the first solution is accepted there
+is no revision and therefore no regression risk — whereas `c-xreview` always runs
+a review→revise cycle that always risks over-revision. So the *gating* topology is
+more conservative than the *mandatory-revision* topology, exactly where the base is
+already correct.
 
 This mirrors Paper #1's finding that naive collaboration can reduce quality, now
 shown **objectively** (correct code made incorrect) rather than via an LLM judge.
-It also sharpens the motivation for headroom benchmarks: collaboration should pay
-off where the base model actually fails (LiveCodeBench / BigCodeBench-Hard /
-SWE-bench), and HumanEval+ ceiling is precisely the regime where it cannot.
+It also sharpens the thesis: collaboration should pay off where the base model
+actually *fails*, so the decisive test is on headroom benchmarks (LiveCodeBench /
+BigCodeBench-Hard / SWE-bench) — HumanEval+ ceiling is precisely the regime where
+it cannot help. Those are scaffolded with exact blockers in `REMAINING_PHASES.md`.
 
 ## Reproduce
 

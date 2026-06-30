@@ -36,15 +36,31 @@ SWE-bench Verified; integration status + blockers in `REMAINING_PHASES.md`).
 
 ## Consortium topologies (heterogeneous)
 
-_(filled in when the consortium runs grade; both run on the full 164-problem set.)_
+Both run on the full 164-problem set; McNemar is exact, paired per-problem vs base-sonnet.
 
-- **c-xreview** (v2 cross-model review): sonnet writes → gpt-oss reviews → sonnet revises.
-- **c-adv** (v4 structural-adversarial): sonnet writes → gpt-5.2 demands rewrites → sonnet revises.
+| Condition | Topology | pass@1 | 95% CI | vs sonnet (fix / regress) | McNemar p |
+|---|---|---:|---|---|---:|
+| base-sonnet | single-shot | 94.5% | [90.9, 97.6] | — | — |
+| **c-xreview** | sonnet writes → gpt-oss reviews → sonnet revises | **87.8%** | [82.9, 92.7] | +3 / −14 | **0.0127** |
+| c-adv* | sonnet writes → gpt-5.2 attacks → sonnet revises | 91.0%* | [83.6, 97.0] | +2 / −5* | 0.45* |
 
-Reported per condition: pass@1, bootstrap CI, and **exact McNemar** vs base-sonnet
-(paired per-problem: where the consortium fixes problems the baseline misses vs.
-regresses). At ceiling we expect small, likely non-significant deltas; the value
-is the validated end-to-end consortium path and the per-problem win/loss matrix.
+\* c-adv on a partial 67/164 at time of writing (run still completing); refreshed on the final re-grade.
+
+**Headline finding — collaboration *hurts* at ceiling (the "Frankenstein effect for code").**
+Cross-model review (`c-xreview`) significantly *degrades* a strong model: it
+**regressed 14** problems sonnet had solved while fixing only **3** (net −11,
+McNemar p = 0.013). The cause is **over-revision** — verified manually: every
+regression still contained valid extracted code (0 extraction failures), and the
+revisions systematically *bloated* correct solutions (e.g. HumanEval/63: 214 →
+761 chars) with extra handling that introduced bugs. When the base solution is
+already correct (94.5% baseline), a reviewer's "improvements" have little to fix
+and much to break.
+
+This mirrors Paper #1's finding that naive collaboration can reduce quality, now
+shown **objectively** (correct code made incorrect) rather than via an LLM judge.
+It also sharpens the motivation for headroom benchmarks: collaboration should pay
+off where the base model actually fails (LiveCodeBench / BigCodeBench-Hard /
+SWE-bench), and HumanEval+ ceiling is precisely the regime where it cannot.
 
 ## Reproduce
 

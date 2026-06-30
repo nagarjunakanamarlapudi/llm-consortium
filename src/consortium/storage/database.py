@@ -9,7 +9,7 @@ import structlog
 
 logger = structlog.get_logger()
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Migration from v1 to v2: add prompt_text and response_text to traces
 MIGRATION_V2 = """
@@ -24,6 +24,11 @@ ALTER TABLE scores_median ADD COLUMN blockers_json TEXT;
 ALTER TABLE traces ADD COLUMN seed INTEGER;
 ALTER TABLE runs ADD COLUMN seed INTEGER;
 """
+
+# Migration from v3 to v4: adds the code_results table. No migration block is
+# needed — unlike V2/V3 (which ALTER pre-existing tables), code_results is a new
+# table created directly by SCHEMA_SQL's `CREATE TABLE IF NOT EXISTS` on every
+# init_schema(), for both fresh and upgraded databases.
 
 SCHEMA_SQL = """\
 -- Schema version tracking
@@ -129,6 +134,22 @@ CREATE TABLE IF NOT EXISTS coherence_checks (
     created_at      TEXT DEFAULT (datetime('now'))
 );
 
+-- Code execution results (one per final design)
+CREATE TABLE IF NOT EXISTS code_results (
+    result_id       TEXT PRIMARY KEY,
+    design_id       TEXT NOT NULL UNIQUE REFERENCES designs(design_id),
+    run_id          TEXT NOT NULL REFERENCES runs(run_id),
+    benchmark       TEXT NOT NULL,
+    problem_id      TEXT NOT NULL,
+    passed          BOOLEAN NOT NULL,
+    n_pass          INTEGER,
+    n_total         INTEGER,
+    error_type      TEXT,
+    exec_ms         REAL,
+    harness_meta    TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
 -- LLM call traces
 CREATE TABLE IF NOT EXISTS traces (
     trace_id        TEXT PRIMARY KEY,
@@ -192,6 +213,8 @@ CREATE INDEX IF NOT EXISTS idx_runs_variant_task ON runs(variant_id, task_id);
 CREATE INDEX IF NOT EXISTS idx_designs_run ON designs(run_id);
 CREATE INDEX IF NOT EXISTS idx_designs_final ON designs(is_final) WHERE is_final = TRUE;
 CREATE INDEX IF NOT EXISTS idx_evaluations_design ON evaluations(design_id);
+CREATE INDEX IF NOT EXISTS idx_code_results_run ON code_results(run_id);
+CREATE INDEX IF NOT EXISTS idx_code_results_benchmark ON code_results(benchmark);
 CREATE INDEX IF NOT EXISTS idx_traces_run ON traces(run_id);
 CREATE INDEX IF NOT EXISTS idx_traces_variant_task ON traces(variant_id, task_id);
 CREATE INDEX IF NOT EXISTS idx_traces_agent ON traces(agent_role, agent_id);
@@ -211,10 +234,13 @@ class Database:
     def conn(self) -> sqlite3.Connection:
         """Get the active connection, opening one if needed."""
         if self._conn is None:
-            self._conn = sqlite3.connect(str(self._db_path))
+            self._conn = sqlite3.connect(str(self._db_path), timeout=30.0)
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
+            # Wait (don't immediately error) when another process holds the write
+            # lock, so several `bench run` workers can share one DB under WAL.
+            self._conn.execute("PRAGMA busy_timeout=30000")
         return self._conn
 
     def init_schema(self) -> None:
@@ -247,6 +273,9 @@ class Database:
                 if "duplicate column" not in str(e).lower():
                     raise
 
+        # v3 -> v4 (code_results) needs no migration block: it is a new table,
+        # created by SCHEMA_SQL above for both fresh and upgraded databases.
+
         # Record schema version
         self.conn.execute(
             "INSERT OR REPLACE INTO schema_version (version) VALUES (?)",
@@ -267,7 +296,17 @@ class Database:
 
     def stats(self) -> dict[str, int]:
         """Return counts for all major tables."""
-        tables = ["runs", "designs", "reviews", "evaluations", "scores_median", "traces", "batches"]
+        tables = [
+            "runs",
+            "designs",
+            "code_results",
+            "reviews",
+            "evaluations",
+            "scores_median",
+            "coherence_checks",
+            "traces",
+            "batches",
+        ]
         result: dict[str, int] = {}
         for table in tables:
             try:

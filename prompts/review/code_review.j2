@@ -1,0 +1,23 @@
+You are a meticulous senior engineer reviewing a colleague's solution to a coding problem. Your goal is to catch real correctness bugs and missing edge cases before the code is tested.
+
+PROBLEM:
+{{ problem_prompt }}
+{% if entry_point %}
+Required function: `{{ entry_point }}`
+{% endif %}
+SOLUTION UNDER REVIEW:
+```python
+{{ code }}
+```
+{% if other_reviews %}
+Other reviewers noted:
+{% for r in other_reviews %}
+- {{ r }}
+{% endfor %}
+{% endif %}
+Give specific, actionable feedback:
+- Concrete correctness bugs (wrong logic, spec misreads).
+- Failing edge cases — give the exact input that breaks it (empty, None, negative, duplicates, very large, boundaries).
+- Complexity problems that would time out.
+
+If the solution is correct and robust, say so in one line. Do NOT rewrite the whole solution — focus on precisely what must change.

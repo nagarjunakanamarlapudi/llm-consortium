@@ -46,28 +46,43 @@ class DesignerAgent(BaseAgent):
             reviews: Review feedback to incorporate during revision.
             perspective: Optional diversity perspective for parallel generation.
         """
-        template_vars: dict[str, Any] = {
-            "system_name": task.variables.system_name,
-            "problem_statement": task.variables.problem_statement,
-            "hard_constraints": task.variables.hard_constraints,
-            "use_cases": task.variables.use_cases,
-            "complexity_drivers": task.variables.complexity_drivers,
-            "complexity": task.complexity,
-            "design_type": task.design_type,
-            "rubric_dimensions": (
-                [d.model_dump() for d in rubric_dimensions] if rubric_dimensions else None
-            ),
-            "review_feedback": ([r.review_text for r in reviews] if reviews else None),
-            "previous_design": (previous_design.full_text if previous_design else None),
-            "perspective": perspective,
-        }
-
         step = "revision" if previous_design else "generation"
 
-        # Pick template based on task design type
-        template = self.prompt_template
-        if task.design_type == "application" and self.application_prompt_template:
-            template = self.application_prompt_template
+        if task.task_type == "coding" and task.coding is not None:
+            # Coding task: render the code-generation template with the problem
+            # spec and (on revision) the prior code plus reviewer feedback.
+            cp = task.coding
+            template_vars: dict[str, Any] = {
+                "benchmark": cp.benchmark,
+                "problem_prompt": cp.prompt,
+                "entry_point": cp.entry_point,
+                "visible_tests": cp.visible_tests,
+                "previous_code": (previous_design.full_text if previous_design else None),
+                "review_feedback": ([r.review_text for r in reviews] if reviews else None),
+                "perspective": perspective,
+            }
+            template = self.prompt_template
+        else:
+            template_vars = {
+                "system_name": task.variables.system_name,
+                "problem_statement": task.variables.problem_statement,
+                "hard_constraints": task.variables.hard_constraints,
+                "use_cases": task.variables.use_cases,
+                "complexity_drivers": task.variables.complexity_drivers,
+                "complexity": task.complexity,
+                "design_type": task.design_type,
+                "rubric_dimensions": (
+                    [d.model_dump() for d in rubric_dimensions] if rubric_dimensions else None
+                ),
+                "review_feedback": ([r.review_text for r in reviews] if reviews else None),
+                "previous_design": (previous_design.full_text if previous_design else None),
+                "perspective": perspective,
+            }
+
+            # Pick template based on task design type
+            template = self.prompt_template
+            if task.design_type == "application" and self.application_prompt_template:
+                template = self.application_prompt_template
 
         response = await self._call_llm(
             template=template,

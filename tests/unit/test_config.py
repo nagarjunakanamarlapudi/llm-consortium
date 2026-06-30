@@ -18,9 +18,11 @@ from consortium.config.loader import (
     load_variant_config,
 )
 from consortium.config.models import (
+    CodingProblemConfig,
     ExperimentConfig,
     FullConfig,
     ModelConfig,
+    TaskConfig,
     VariantConfig,
 )
 from consortium.config.registry import get_config, init_registry
@@ -116,6 +118,46 @@ class TestTaskConfig:
             tc = load_task_config(f)
             assert tc.id, f"Task in {f.name} has no id"
             assert tc.complexity in ("simple", "medium", "complex")
+
+    def test_existing_design_task_defaults_task_type(self, configs_dir: Path) -> None:
+        # Backward compatibility: tasks with no task_type/coding default to "design".
+        tc = load_task_config(configs_dir / "tasks" / "t1_url_shortener.yaml")
+        assert tc.task_type == "design"
+        assert tc.coding is None
+
+    def test_load_coding_task_roundtrip(self, tmp_path: Path) -> None:
+        yaml_text = """\
+task:
+  id: "c1"
+  name: "Two Sum"
+  task_type: "coding"
+  prompt_template: "generation/solve_coding.j2"
+  coding:
+    id: "two-sum-001"
+    benchmark: "humanevalplus"
+    prompt: "Return indices of the two numbers adding up to target."
+    entry_point: "two_sum"
+    visible_tests: "assert two_sum([2, 7, 11, 15], 9) == [0, 1]"
+    difficulty: "easy"
+"""
+        path = tmp_path / "c1_two_sum.yaml"
+        path.write_text(yaml_text)
+
+        tc = load_task_config(path)
+        assert tc.task_type == "coding"
+        assert isinstance(tc.coding, CodingProblemConfig)
+        assert tc.coding.benchmark == "humanevalplus"
+        assert tc.coding.entry_point == "two_sum"
+
+        # model_dump_json carries the discriminator and the nested coding block.
+        json_str = tc.model_dump_json()
+        assert '"task_type":"coding"' in json_str
+
+        # Round-trips through JSON without loss.
+        restored = TaskConfig.model_validate_json(json_str)
+        assert restored == tc
+        assert restored.coding is not None
+        assert restored.coding.id == "two-sum-001"
 
 
 class TestRubricConfig:

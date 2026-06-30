@@ -87,7 +87,13 @@ class OrchestratorEngine:
         """
         variant_config = self.config.get_variant(variant_id)
         task_config = self.config.get_task(task_id)
-        rubric_config = self.config.get_rubric(task_config.rubric)
+        # Coding tasks are scored by execution, not an LLM-judge rubric, so they
+        # carry no rubric; only design tasks resolve one.
+        rubric_config = (
+            self.config.get_rubric(task_config.rubric)
+            if task_config.task_type != "coding"
+            else None
+        )
         limits = self.config.experiment.limits
 
         # Check for existing run
@@ -131,7 +137,8 @@ class OrchestratorEngine:
         )
 
         # Attach rubric dimensions to context for orchestrators to access
-        context.rubric_dimensions = list(rubric_config.dimensions)
+        # (empty for coding tasks, which are graded by test execution).
+        context.rubric_dimensions = list(rubric_config.dimensions) if rubric_config else []
 
         log = logger.bind(
             run_id=run_id,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from consortium.storage.database import Database
+from consortium.storage.database import SCHEMA_VERSION, Database
 
 
 class TestDatabase:
@@ -12,7 +12,7 @@ class TestDatabase:
         with Database(tmp_db) as db:
             db.init_schema()
             version = db.get_schema_version()
-            assert version == 2
+            assert version == SCHEMA_VERSION
 
     def test_stats_empty(self, tmp_db: Path) -> None:
         with Database(tmp_db) as db:

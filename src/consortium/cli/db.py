@@ -14,6 +14,7 @@ console = Console()
 ALL_TABLES = [
     "runs",
     "designs",
+    "code_results",
     "reviews",
     "evaluations",
     "scores_median",

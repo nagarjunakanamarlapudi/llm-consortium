@@ -210,16 +210,35 @@ class TaskVariables(BaseModel, frozen=True):
     complexity_drivers: list[str] = Field(default_factory=list)
 
 
+class CodingProblemConfig(BaseModel, frozen=True):
+    """A single coding-benchmark problem attached to a task.
+
+    Present only when ``TaskConfig.task_type == "coding"``. Hidden tests are
+    never stored here; they live in the official benchmark harness.
+    """
+
+    id: str
+    benchmark: str  # "livecodebench" | "bigcodebench" | "swebench" | "humanevalplus"
+    prompt: str  # spec / docstring / issue text
+    entry_point: str = ""  # function name (function-level)
+    visible_tests: str = ""  # example tests shown in prompt (function-level)
+    repo: str = ""  # SWE-bench: owner/name
+    base_commit: str = ""  # SWE-bench
+    difficulty: str = ""  # for stratified analysis
+
+
 class TaskConfig(BaseModel, frozen=True):
-    """Configuration for a single design task."""
+    """Configuration for a single task (design or coding)."""
 
     id: str
     name: str
+    task_type: str = "design"  # "design" | "coding"
     complexity: str = "medium"  # "simple" | "medium" | "complex"
     design_type: str = "system"  # "system" | "application"
     rubric: str = ""
     prompt_template: str = ""
     variables: TaskVariables = TaskVariables()
+    coding: CodingProblemConfig | None = None
 
 
 # ── Rubric Config ────────────────────────────────────────────────────────────

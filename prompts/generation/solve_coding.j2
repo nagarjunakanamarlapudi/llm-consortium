@@ -1,0 +1,32 @@
+{% if perspective %}{{ perspective }}
+
+{% endif %}You are an expert Python programmer. Write a correct, efficient solution to the problem below.
+
+PROBLEM:
+{{ problem_prompt }}
+{% if entry_point %}
+Your solution MUST define a callable named `{{ entry_point }}` matching the signature implied above.
+{% endif %}
+{% if visible_tests %}
+Your solution must pass these example tests, plus additional hidden tests that probe edge cases:
+{{ visible_tests }}
+{% endif %}
+{% if previous_code %}
+You previously submitted this solution:
+```python
+{{ previous_code }}
+```
+{% if review_feedback %}
+Reviewer feedback to address:
+{% for fb in review_feedback %}
+--- review {{ loop.index }} ---
+{{ fb }}
+{% endfor %}
+{% endif %}
+Carefully revise your solution to fix every real issue while keeping what was correct.
+{% endif %}
+
+Requirements:
+- Output EXACTLY ONE fenced ```python code block containing the COMPLETE, self-contained, runnable solution (all imports + full definitions).
+- Do not include test calls, example usage, prints, or any prose outside the code block.
+- Handle edge cases (empty input, large input, boundaries) carefully.

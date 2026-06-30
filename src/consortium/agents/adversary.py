@@ -63,17 +63,28 @@ class AdversarialReviewer(BaseAgent):
             design: The design document to judge.
             rubric_dimensions: Rubric dimensions for quality threshold check.
         """
-        template_vars: dict[str, Any] = {
-            "design_text": design.full_text,
-            "system_name": task.variables.system_name,
-            "complexity": task.complexity,
-            "design_type": task.design_type,
-            "rubric_dimensions": (
-                [d.model_dump() for d in rubric_dimensions]
-                if rubric_dimensions
-                else None
-            ),
-        }
+        if task.task_type == "coding" and task.coding is not None:
+            from consortium.agents.code_extract import extract_code
+
+            cp = task.coding
+            template_vars = {
+                "problem_prompt": cp.prompt,
+                "entry_point": cp.entry_point,
+                "visible_tests": cp.visible_tests,
+                "code": extract_code(design.full_text),
+            }
+        else:
+            template_vars = {
+                "design_text": design.full_text,
+                "system_name": task.variables.system_name,
+                "complexity": task.complexity,
+                "design_type": task.design_type,
+                "rubric_dimensions": (
+                    [d.model_dump() for d in rubric_dimensions]
+                    if rubric_dimensions
+                    else None
+                ),
+            }
 
         response = await self._call_llm(
             template=self.prompt_template,

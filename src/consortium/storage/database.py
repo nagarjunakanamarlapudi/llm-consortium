@@ -234,10 +234,13 @@ class Database:
     def conn(self) -> sqlite3.Connection:
         """Get the active connection, opening one if needed."""
         if self._conn is None:
-            self._conn = sqlite3.connect(str(self._db_path))
+            self._conn = sqlite3.connect(str(self._db_path), timeout=30.0)
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
+            # Wait (don't immediately error) when another process holds the write
+            # lock, so several `bench run` workers can share one DB under WAL.
+            self._conn.execute("PRAGMA busy_timeout=30000")
         return self._conn
 
     def init_schema(self) -> None:

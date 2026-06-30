@@ -1,0 +1,27 @@
+model:
+  id: "do-gptoss"
+  provider: "do_inference"
+  api_model: "openai-gpt-oss-120b"
+
+  # gpt-oss-120b is open-weight; pricing approximates typical open-host rates.
+  # NOTE: gpt-oss is a reasoning model — responses include separate
+  # reasoning_content; the OpenAI-compatible `content` field still carries the
+  # final answer (the code), which is what extraction reads.
+  pricing:
+    input: 0.15
+    output: 0.60
+    batch_discount: 0.0
+    cached_input: 0.15
+
+  parameters:
+    temperature: 0.0
+    max_tokens: 20000   # headroom for reasoning tokens + the final answer
+    top_p: 1.0
+
+  context_window: 128000
+  supports_batch: false
+  supports_caching: false
+
+  rate_limits:
+    requests_per_minute: 240
+    tokens_per_minute: 1000000

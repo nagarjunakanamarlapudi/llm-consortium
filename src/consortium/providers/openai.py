@@ -30,6 +30,20 @@ def _parse_int_header(headers: object, name: str) -> int | None:
         return None
 
 
+def _clean_sampling_params(params: dict[str, object]) -> dict[str, object]:
+    """Drop no-op sampling params that some OpenAI-compatible backends reject.
+
+    A ``top_p`` of 1.0 is the identity (no nucleus truncation), but some
+    endpoints — notably DigitalOcean's Anthropic-backed models — reject a
+    request that specifies *both* ``temperature`` and ``top_p``. Since
+    ``top_p == 1.0`` changes nothing, omit it in that case so a single uniform
+    request body works across every model family on the endpoint.
+    """
+    if params.get("top_p") == 1.0 and "temperature" in params:
+        params = {k: v for k, v in params.items() if k != "top_p"}
+    return params
+
+
 _BATCH_TERMINAL_STATES = frozenset({"completed", "failed", "expired", "cancelled"})
 _BATCH_POLL_INTERVAL_S = 30.0
 _BATCH_POLL_MAX_S = 86_400.0  # 24 hours
@@ -42,10 +56,19 @@ class OpenAIProvider(LLMProvider):
     All IO is async; the provider itself is stateless between calls.
     """
 
-    def __init__(self, config: ModelConfig, *, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        config: ModelConfig,
+        *,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> None:
         self._config = config
-        # When *api_key* is None the SDK reads OPENAI_API_KEY from the env.
-        self._client = AsyncOpenAI(api_key=api_key)
+        # When *api_key* is None the SDK reads OPENAI_API_KEY from the env;
+        # when *base_url* is None it defaults to the OpenAI endpoint (or
+        # OPENAI_BASE_URL). An explicit base_url lets subclasses target any
+        # OpenAI-compatible endpoint (e.g. DigitalOcean serverless inference).
+        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
     # ── public interface ─────────────────────────────────────────────────
 
@@ -195,12 +218,14 @@ class OpenAIProvider(LLMProvider):
 
     def _build_chat_body(self, request: LLMRequest) -> dict:
         """Build the JSON body for a Chat Completions request."""
-        merged_params = {
-            "temperature": self._config.parameters.temperature,
-            "max_tokens": self._config.parameters.max_tokens,
-            "top_p": self._config.parameters.top_p,
-            **request.parameters,
-        }
+        merged_params = _clean_sampling_params(
+            {
+                "temperature": self._config.parameters.temperature,
+                "max_tokens": self._config.parameters.max_tokens,
+                "top_p": self._config.parameters.top_p,
+                **request.parameters,
+            }
+        )
 
         messages: list[dict[str, str]] = []
         if request.system_prompt:
@@ -227,12 +252,14 @@ class OpenAIProvider(LLMProvider):
         )
         log.debug("openai.request_start")
 
-        merged_params = {
-            "temperature": self._config.parameters.temperature,
-            "max_tokens": self._config.parameters.max_tokens,
-            "top_p": self._config.parameters.top_p,
-            **request.parameters,
-        }
+        merged_params = _clean_sampling_params(
+            {
+                "temperature": self._config.parameters.temperature,
+                "max_tokens": self._config.parameters.max_tokens,
+                "top_p": self._config.parameters.top_p,
+                **request.parameters,
+            }
+        )
 
         # Pass seed for reproducibility if provided
         if request.seed is not None:

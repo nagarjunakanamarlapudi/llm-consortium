@@ -33,6 +33,13 @@ def _ensure_registry() -> None:
         logger.debug("openai_sdk_not_available")
 
     try:
+        from consortium.providers.do_inference import DOInferenceProvider
+
+        _PROVIDER_REGISTRY["do_inference"] = DOInferenceProvider
+    except ImportError:
+        logger.debug("do_inference_provider_not_available")
+
+    try:
         from consortium.providers.google import GoogleProvider
 
         _PROVIDER_REGISTRY["google"] = GoogleProvider

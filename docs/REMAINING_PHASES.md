@@ -43,6 +43,21 @@ Same shape as EvalPlus; only the harness package and dataset differ.
 
 Expected pass@1 (headroom): Sonnet ~35–45%, gpt-5.2 ~35%, gpt-oss ~30%.
 
+**Status (this session): image built + API probed, but DEFERRED.** Findings:
+- `bigcodebench.evaluate` signature is `evaluate(SPLIT, SUBSET, --samples=, --execution=, ...)`;
+  default `execution='gradio'` is *remote* — pass `--execution=local` for in-container runs.
+- BigCodeBench-Hard = 148 problems, `entry_point="task_func"`, fields `complete_prompt`
+  / `instruct_prompt` / `canonical_solution` / `test`.
+- **Blocker A (deps):** solutions import a large scientific stack (matplotlib, numpy,
+  pandas, sklearn, scipy, seaborn, flask, requests, bs4, pillow, …). A slim image fails
+  even on canonical solutions (`ModuleNotFoundError: matplotlib`). Need the full env.
+- **Blocker B (arch):** the official `bigcodebench/bigcodebench-evaluate` image is
+  **amd64-only** — no arm64 manifest, so it won't run natively on Apple Silicon, and
+  emulation is far too slow for 148 library-heavy problems.
+- **Recommended path:** run BigCodeBench scoring on an **amd64 DigitalOcean droplet**
+  using the official image (the user has DO droplet access); generation still happens via
+  DO inference from anywhere. The loader/scorer mirror the EvalPlus pattern already built.
+
 ## Phase 1b — LiveCodeBench (contamination-free, date-windowed)
 
 Heavier than EvalPlus: stdin/stdout *and* functional problems, date windows.
@@ -60,6 +75,18 @@ Heavier than EvalPlus: stdin/stdout *and* functional problems, date windows.
 4. Date-windowing is the contamination control — record the window in `harness_meta`.
 
 Expected pass@1 (headroom): Sonnet ~55–64%, gpt-5.2 mid, gpt-oss ~58–60%.
+
+**Status (this session): probed, DEFERRED.** Friction found:
+- `datasets.load_dataset("livecodebench/code_generation_lite", ...)` fails because the
+  repo ships a **loading script** that the installed (newer) `datasets` rejects
+  ("Dataset scripts are no longer supported"). Options: pin an older `datasets`, or
+  download the parquet/jsonl directly via `huggingface_hub` and parse.
+- LiveCodeBench encodes test cases (often base64+zlib JSON) and its grading
+  (stdin/stdout vs functional, timeouts) lives in `lcb_runner`; reuse that harness
+  rather than reimplementing, to match published numbers.
+- Unlike EvalPlus, LiveCodeBench supports **subset** evaluation (date window / id
+  filter), so a ~50-problem pilot is cheap once the loader/runner exist. Competitive-
+  programming solutions are stdlib-only → arm64-friendly (no heavy image needed).
 
 ## Phase 3 — SWE-bench Verified (repo-level)
 

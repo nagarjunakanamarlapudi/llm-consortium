@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from consortium.cli.analyze import app as analyze_app
+from consortium.cli.bench import app as bench_app
 from consortium.cli.db import app as db_app
 from consortium.cli.run import app as run_app
 from consortium.cli.timeline import app as timeline_app
@@ -23,6 +24,11 @@ app.add_typer(db_app, name="db", help="Database operations (init, stats, export)
 app.add_typer(timeline_app, name="timeline", help="LLM call timeline views")
 app.add_typer(analyze_app, name="analyze", help="Statistical analysis and visualization")
 app.add_typer(verify_app, name="verify", help="E2E prompt and data verification checks")
+app.add_typer(
+    bench_app,
+    name="bench",
+    help="Coding-benchmark scoring (Phase 0: score/list; run lands in Phase 1)",
+)
 
 
 @app.callback()

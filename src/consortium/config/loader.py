@@ -169,7 +169,12 @@ def _normalize_named_agents(variant_data: dict) -> None:
 
 
 def load_task_config(path: Path) -> TaskConfig:
-    """Load a task config from a YAML file."""
+    """Load a task config from a YAML file.
+
+    The nested ``coding`` block (present only for ``task_type: coding``) is
+    coerced into a :class:`CodingProblemConfig` automatically by Pydantic when
+    constructing :class:`TaskConfig`.
+    """
     data = load_yaml(path)
     task_data = data.get("task", data)
     return TaskConfig(**task_data)

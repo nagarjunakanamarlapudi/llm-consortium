@@ -229,6 +229,9 @@ def report(
         "v1a_sonnet", "--baseline", help="Variant id to compare consortium arms against (McNemar)"
     ),
     database: Path = typer.Option(_DEFAULT_DB, "--database", "-d"),
+    markdown: Path | None = typer.Option(
+        None, "--markdown", help="Also write a markdown results file to this path"
+    ),
 ) -> None:
     """Print pass@1 / pass@k per condition and McNemar vs a baseline."""
     from consortium.analysis.code_stats import condition_results, mcnemar
@@ -241,6 +244,30 @@ def report(
         if not results:
             console.print(f"[yellow]No scored results for {benchmark}.[/yellow]")
             return
+
+        if markdown is not None:
+            lines = [f"## {benchmark} — pass@1\n",
+                     "| condition | problems | pass@1 | 95% CI | pass@k |",
+                     "|---|---:|---:|---|---:|"]
+            for r in results:
+                lines.append(
+                    f"| {r.variant_id} | {r.n_problems} | {r.pass_at_1 * 100:.1f}% | "
+                    f"[{r.ci_low * 100:.1f}, {r.ci_high * 100:.1f}] | {r.pass_at_k * 100:.1f}% |"
+                )
+            md_others = [r.variant_id for r in results if r.variant_id != baseline]
+            if any(r.variant_id == baseline for r in results) and md_others:
+                lines += [f"\n### McNemar vs {baseline}\n",
+                          "| condition | both | neither | cond-only | base-only | p-value |",
+                          "|---|---:|---:|---:|---:|---:|"]
+                for vid in md_others:
+                    m = mcnemar(db, benchmark, vid, baseline)
+                    lines.append(
+                        f"| {vid} | {m['both_pass']} | {m['neither_pass']} | "
+                        f"{m['a_only']} | {m['b_only']} | {m['p_value']:.4f} |"
+                    )
+            markdown.parent.mkdir(parents=True, exist_ok=True)
+            markdown.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            console.print(f"[green]wrote {markdown}[/green]")
 
         t = Table(title=f"pass@1 — {benchmark}")
         for col in ("condition", "problems", "samples", "pass@1", "95% CI", "pass@k"):
